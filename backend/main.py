@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import shutil
 import os
-import sqlite3
 import json
 import time
 from typing import Optional
@@ -19,9 +18,12 @@ from auth import verify_password, get_password_hash, create_access_token, decode
 
 app = FastAPI()
 
+frontend_url = os.getenv("FRONTEND_URL")
+origins = [frontend_url] if frontend_url else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
