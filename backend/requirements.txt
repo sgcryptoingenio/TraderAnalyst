@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+python-multipart
+pandas
+numpy
+ccxt
+PyJWT
+passlib
+bcrypt
+openpyxl
+
+psycopg2-binary

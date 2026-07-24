@@ -1,0 +1,385 @@
+import React, { useState, useEffect } from 'react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Brush } from 'recharts';
+import TVChart from './TVChart';
+import html2pdf from 'html2pdf.js';
+
+const Dashboard = ({ data, onSymbolChange }) => {
+  const [mentorshipLink, setMentorshipLink] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/settings')
+      .then(res => res.json())
+      .then(d => setMentorshipLink(d.mentorship_link || ''))
+      .catch(err => console.error(err));
+  }, []);
+  
+  const handleExportPDF = async () => {
+    setIsExporting(true);
+
+    // 1. Inyectar estilos sólidos para el PDF (resuelve el problema de fondos blancos)
+    //    html2canvas no puede procesar backdrop-filter ni CSS variables complejas.
+    const pdfStyle = document.createElement('style');
+    pdfStyle.id = 'pdf-dark-override';
+    pdfStyle.textContent = `
+      #dashboard-export-area,
+      #dashboard-export-area * {
+        --bg-color: #09090b !important;
+        --card-bg: #18181b !important;
+        --card-hover-bg: #27272a !important;
+        --border-color: rgba(255,255,255,0.1) !important;
+        --text-primary: #f4f4f5 !important;
+        --text-secondary: #a1a1aa !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+      #dashboard-export-area .glass-card {
+        background: #18181b !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+      }
+      #dashboard-export-area body,
+      #dashboard-export-area .app-wrapper {
+        background-color: #09090b !important;
+      }
+    `;
+    document.head.appendChild(pdfStyle);
+
+    // 2. Pausa para que React renderice los overrides y la marca de agua
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const element = document.getElementById('dashboard-export-area');
+
+    const opt = {
+      margin:      [12, 12, 12, 12],
+      filename:    `sabueso_reporte_${data.exchange}_${new Date().toISOString().split('T')[0]}.pdf`,
+      image:       { type: 'jpeg', quality: 0.97 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#09090b',  // Fondo del canvas en caso de transparencia residual
+        windowWidth: element.scrollWidth,
+        logging: false,
+      },
+      jsPDF: { unit: 'mm', format: 'a3', orientation: 'portrait' }
+    };
+
+    try {
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error('Error al exportar a PDF:', err);
+    } finally {
+      // 3. Limpiar los estilos inyectados para restaurar la UI normal
+      const injected = document.getElementById('pdf-dark-override');
+      if (injected) injected.remove();
+      setIsExporting(false);
+    }
+  };
+  
+  if (!data) return null;
+  const { exchange, metrics, active_symbol } = data;
+  if (!metrics || Object.keys(metrics).length === 0) {
+    return <div className="glass-card" style={{ textAlign: 'center', marginTop: '30px' }}><h3 style={{ color: 'var(--loss-color)' }}>Datos Insuficientes</h3></div>;
+  }
+  
+  const winRateNum = parseFloat(metrics.win_rate || "0");
+  const winRateData = [{ name: 'Win', value: winRateNum }, { name: 'Loss', value: 100 - winRateNum }];
+  
+  const longMatch = (metrics.long_preference || "").match(/([\d.]+)%\sLong/i);
+  const shortMatch = (metrics.long_preference || "").match(/([\d.]+)%\sShort/i);
+  const dirData = [{ name: 'Long', value: longMatch ? parseFloat(longMatch[1]) : 50 }, { name: 'Short', value: shortMatch ? parseFloat(shortMatch[1]) : 50 }];
+  
+  const COLORS = ['var(--win-color)', 'var(--loss-color)'];
+  const DIR_COLORS = ['#3498db', '#e74c3c'];
+
+  // AI Diagnosis Logic
+  let diagnosisTitle = "Diagnóstico Avanzado";
+  let diagnosisText = "Selecciona un par o revisa tu historial general para un diagnóstico.";
+  let topStrategy = "";
+  let topStrategyScore = 0;
+
+  if (metrics.strategies && Object.keys(metrics.strategies).length > 0) {
+    const sortedStrats = Object.entries(metrics.strategies).sort((a,b) => b[1] - a[1]);
+    if (sortedStrats.length > 0) {
+      topStrategy = sortedStrats[0][0];
+      topStrategyScore = sortedStrats[0][1];
+    }
+  }
+
+  if (metrics.total_trades > 0) {
+    const backendStyle = metrics.trading_style || "Trader de Frecuencia Media";
+    const adviceList = metrics.advice || [];
+    
+    let effectiveness = `Tuviste una efectividad del ${metrics.win_rate} con un Riesgo/Beneficio de ${metrics.risk_reward_ratio}.`;
+    
+    diagnosisText = (
+      <>
+        <p>Tu perfil se alinea con el de un <strong>{backendStyle}</strong>.</p>
+        <p>{effectiveness}</p>
+        {adviceList.map((adv, idx) => (
+          <p key={idx}>{adv}</p>
+        ))}
+        {topStrategy && (
+          <p>Estrategia dominante sugerida por la IA: <strong>{topStrategy} ({topStrategyScore}%)</strong>.</p>
+        )}
+      </>
+    );
+  }
+
+  const renderTable = (trades, title, emoji) => (
+    <div className="glass-card table-container" style={{flex: 1, minWidth: '300px'}}>
+      <h3 style={{marginBottom: '15px'}}>{emoji} {title}</h3>
+      {trades && trades.length > 0 ? (
+        <table>
+          <thead><tr><th>Fecha</th><th>Par</th><th>Lado</th><th>PNL</th></tr></thead>
+          <tbody>
+            {trades.map((t, idx) => {
+              const pnlVal = parseFloat(t.reported_pnl);
+              const pnlClass = pnlVal >= 0 ? 'text-win' : 'text-loss';
+              return (
+                <tr key={idx} className="hoverable-row">
+                  <td className="text-secondary">{t.exit_time !== 'N/A' ? t.exit_time : '-'}</td>
+                  <td style={{fontWeight: '600'}}>{t.symbol}</td>
+                  <td>{t.side}</td>
+                  <td className={pnlClass} style={{fontWeight: 'bold'}}>
+                    {pnlVal >= 0 ? '+' : ''}{pnlVal.toFixed(2)} 
+                    <span style={{fontSize: '0.75rem', opacity: 0.8, marginLeft: '6px', textShadow: 'none'}}>
+                      ({parseFloat(t.true_pnl_pct) > 0 ? '+' : ''}{parseFloat(t.true_pnl_pct).toFixed(2)}%)
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      ) : <p className="text-secondary" style={{fontSize: '0.9rem'}}>No hay datos disponibles.</p>}
+    </div>
+  );
+
+  return (
+    <div className="dashboard-container" id="dashboard-export-area" style={{position: 'relative'}}>
+      {isExporting && <div className="watermark-pdf">Generado por Sabueso</div>}
+      {/* HEADER SECTION */}
+      <div className="glass-card" style={{ marginBottom: '30px', textAlign: 'center', padding: '40px 20px', position: 'relative' }}>
+        {!isExporting && (
+          <button 
+            onClick={handleExportPDF} 
+            className="nav-btn" 
+            style={{position: 'absolute', right: '20px', top: '20px', display: 'flex', alignItems: 'center', gap: '8px'}}
+            disabled={isExporting}
+          >
+            {isExporting ? '⏳ Generando...' : '📄 Exportar a PDF'}
+          </button>
+        )}
+        <h2 style={{fontSize: '2rem', marginBottom: '24px'}}>Análisis de Historial: <span style={{color: 'var(--text-primary)', fontWeight: '800'}}>{exchange}</span></h2>
+        {metrics.available_symbols && metrics.available_symbols.length > 0 && (
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button onClick={() => onSymbolChange(null)} className="nav-btn" style={!active_symbol ? {background: 'var(--primary)', color: '#000', borderColor: 'var(--primary)', boxShadow: '0 0 15px var(--primary-glow)'} : {}}>🌍 Global</button>
+            {metrics.available_symbols.map(s => (
+              <button key={s} onClick={() => onSymbolChange(s)} className="nav-btn" style={active_symbol === s ? {background: 'var(--primary)', color: '#000', borderColor: 'var(--primary)', boxShadow: '0 0 15px var(--primary-glow)'} : {}}>{s}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* METRICS GRID (4 COLUMNS) */}
+      <div className="dashboard-grid" style={{ marginBottom: '30px' }}>
+        {/* WIN RATE */}
+        <div className="glass-card metric-item" style={{display: 'flex', flexDirection: 'column'}}>
+          <h4>Win Rate</h4>
+          <div style={{position: 'relative', width: '100%', height: '140px'}}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={winRateData} cx="50%" cy="50%" innerRadius={45} outerRadius={60} dataKey="value" stroke="none">
+                  {winRateData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.3rem', color: 'var(--text-color)'}}>
+              {metrics.win_rate}
+            </div>
+          </div>
+          <div className="metric-subtitle">De {metrics.total_trades} operaciones</div>
+        </div>
+
+        {/* RISK / REWARD */}
+        <div className="glass-card metric-item" style={{justifyContent: 'center'}}>
+          <h4>Riesgo / Beneficio</h4>
+          <div className="metric-value">{metrics.risk_reward_ratio}</div>
+          <div className="metric-subtitle" style={{marginTop: '10px'}}>
+            <span className="text-win">{metrics.avg_win_pct} (${metrics.avg_win_amt_usd})</span> vs 
+            <span className="text-loss"> {metrics.avg_loss_pct} (${metrics.avg_loss_amt_usd})</span>
+          </div>
+          <div className="metric-subtitle" style={{marginTop: '10px', fontWeight: 'bold', color: 'var(--text-primary)'}}>Total PNL: <span className={parseFloat(metrics.total_pnl_usd) >= 0 ? 'text-win' : 'text-loss'}>${metrics.total_pnl_usd}</span></div>
+        </div>
+
+        {/* DIRECCIÓN */}
+        <div className="glass-card metric-item">
+          <h4>Dirección de Operativa</h4>
+          <div style={{position: 'relative', width: '100%', height: '140px'}}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={dirData} cx="50%" cy="50%" innerRadius={45} outerRadius={60} dataKey="value" stroke="none">
+                  {dirData.map((e, i) => <Cell key={i} fill={DIR_COLORS[i % DIR_COLORS.length]} />)}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="metric-subtitle">{metrics.long_preference}</div>
+        </div>
+
+        {/* PACIENCIA */}
+        <div className="glass-card metric-item" style={{justifyContent: 'center'}}>
+          <h4>Paciencia Promedio</h4>
+          <div className="metric-value" style={{fontSize: '1.5rem'}}>{metrics.avg_duration !== 'N/A' ? metrics.avg_duration : '-'}</div>
+        </div>
+      </div>
+
+      {/* PREDICTIVE MODELING & QUANT METRICS */}
+      <div className="glass-card" style={{ marginBottom: '30px' }}>
+        <h3 style={{marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px'}}>🎯 Modelado Predictivo y Análisis Quant</h3>
+        <p className="metric-subtitle" style={{textAlign: 'left', marginBottom: '28px'}}>Patrones y correlaciones identificados en base a tu operativa histórica</p>
+
+        {/* Quant Hit Bars */}
+        <div style={{display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '28px'}}>
+          {[
+            { label: 'Rompimientos', sublabel: 'Breakout Hits', value: metrics.breakout_hits || 0, max: Math.max(metrics.breakout_hits || 0, metrics.pullback_hits || 0, metrics.vol_spike_hits || 0, 1), color: 'var(--primary)', glow: 'var(--primary-glow)' },
+            { label: 'Retrocesos', sublabel: 'Pullback Hits', value: metrics.pullback_hits || 0, max: Math.max(metrics.breakout_hits || 0, metrics.pullback_hits || 0, metrics.vol_spike_hits || 0, 1), color: '#60a5fa', glow: 'rgba(96,165,250,0.3)' },
+            { label: 'Picos de Volatilidad', sublabel: 'Vol Spike Hits', value: metrics.vol_spike_hits || 0, max: Math.max(metrics.breakout_hits || 0, metrics.pullback_hits || 0, metrics.vol_spike_hits || 0, 1), color: '#f59e0b', glow: 'rgba(245,158,11,0.3)' },
+          ].map(({ label, sublabel, value, max, color, glow }) => {
+            const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+            return (
+              <div key={sublabel}>
+                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '7px'}}>
+                  <span style={{fontSize: '0.88rem', fontWeight: '600'}}>{label} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>({sublabel})</span></span>
+                  <span style={{fontWeight: '700', fontSize: '0.95rem', color}}>{value} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>ocurrencias</span></span>
+                </div>
+                <div style={{width: '100%', height: '8px', background: 'var(--border-color)', borderRadius: '99px', overflow: 'hidden'}}>
+                  <div style={{
+                    height: '100%', borderRadius: '99px',
+                    width: `${pct}%`,
+                    background: `linear-gradient(90deg, ${color}aa, ${color})`,
+                    boxShadow: `0 0 10px ${glow}`,
+                    transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)'
+                  }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Strategy Correlation Bars */}
+        {metrics.strategies && Object.keys(metrics.strategies).length > 0 && (
+          <div>
+            <p className="metric-subtitle" style={{textAlign: 'left', marginBottom: '16px', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px'}}>Correlación de Estrategias</p>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '14px'}}>
+              {Object.entries(metrics.strategies).sort((a,b)=>b[1]-a[1]).map(([strat, score]) => (
+                <div key={strat}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '6px'}}>
+                    <span style={{fontSize: '0.88rem', fontWeight: '500'}}>{strat}</span>
+                    <span style={{fontWeight: '700', color: score >= 60 ? 'var(--primary)' : score >= 40 ? '#f59e0b' : 'var(--loss-color)', fontSize: '0.9rem'}}>{score}%</span>
+                  </div>
+                  <div style={{width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '99px', overflow: 'hidden'}}>
+                    <div style={{
+                      height: '100%', borderRadius: '99px',
+                      width: `${score}%`,
+                      background: score >= 60
+                        ? 'linear-gradient(90deg, #059669, #10b981)'
+                        : score >= 40
+                        ? 'linear-gradient(90deg, #d97706, #f59e0b)'
+                        : 'linear-gradient(90deg, #b91c1c, #ef4444)',
+                      transition: 'width 0.9s cubic-bezier(0.4,0,0.2,1)'
+                    }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* TV CHART */}
+      {metrics.tv_data && metrics.tv_data.ohlcv && metrics.tv_data.ohlcv.length > 0 && active_symbol && (
+        <div className="glass-card" style={{ marginBottom: '30px' }}>
+          <h3 style={{marginBottom: '20px'}}>Reconstrucción Visual de Trades (TradingView)</h3>
+          <TVChart chartData={metrics.tv_data} />
+        </div>
+      )}
+
+      {/* EQUITY CURVE */}
+      {metrics.equity_curve && metrics.equity_curve.length > 0 && (
+        <div className="glass-card" style={{ marginBottom: '30px', height: '480px' }}>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px'}}>
+            <div>
+              <h3 style={{marginBottom: '4px'}}>Curva de Consistencia (PNL USD)</h3>
+              <p className="metric-subtitle" style={{textAlign: 'left', margin: 0}}>Usa el slider inferior para hacer zoom en el período que deseas analizar</p>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height="90%">
+            <AreaChart data={metrics.equity_curve} margin={{ top: 10, right: 30, left: 0, bottom: 30 }}>
+              <defs>
+                <linearGradient id="pnlGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+              <XAxis dataKey="exit_time" stroke="#52525b" tick={{fontSize: 10, fill: '#71717a'}} tickMargin={10} />
+              <YAxis stroke="#52525b" tick={{fontSize: 10, fill: '#71717a'}} />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#f4f4f5', fontSize: '0.85rem' }}
+                labelStyle={{ color: '#a1a1aa', marginBottom: '4px' }}
+                cursor={{ stroke: 'var(--primary)', strokeWidth: 1, strokeDasharray: '4 4' }}
+              />
+              <Area
+                type="monotone"
+                dataKey="cumulative_pnl_amt"
+                stroke="#10b981"
+                strokeWidth={2}
+                fill="url(#pnlGradient)"
+                dot={false}
+                activeDot={{ r: 5, fill: '#10b981', stroke: '#09090b', strokeWidth: 2 }}
+              />
+              <Brush
+                dataKey="exit_time"
+                height={24}
+                stroke="rgba(255,255,255,0.1)"
+                fill="rgba(24,24,27,0.8)"
+                travellerWidth={8}
+                tickFormatter={() => ''}
+                style={{ marginTop: '10px' }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* TABLES: TOP WINNERS & LOSERS */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '30px' }}>
+        {renderTable(metrics.top_winners, "Top 10 Trades Ganadores", "🏆")}
+        {renderTable(metrics.top_losers, "Top 10 Peores Trades", "🚨")}
+      </div>
+
+      {/* ADVANCED DIAGNOSTICS */}
+      <div className="glass-card" style={{ padding: '30px', borderLeft: '4px solid var(--primary)' }}>
+        <h2 style={{marginBottom: '20px'}}>Diagnóstico Avanzado</h2>
+        <div style={{fontSize: '1.05rem', lineHeight: '1.8', color: 'var(--text-color)'}}>
+          {diagnosisText}
+        </div>
+        
+        {mentorshipLink && (
+          <div style={{marginTop: '30px', textAlign: 'left'}}>
+            <a href={mentorshipLink} target="_blank" rel="noopener noreferrer" style={{textDecoration: 'none'}}>
+              <button className="upload-btn" style={{padding: '12px 30px', fontSize: '1rem'}}>
+                Solicitar Mentoría Personalizada
+              </button>
+            </a>
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+};
+export default Dashboard;
