@@ -4,6 +4,8 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Auth from './components/Auth';
 import History from './components/History';
 import AdminPanel from './components/AdminPanel';
+import ChangePasswordModal from './components/ChangePasswordModal';
+import API_BASE from './api';
 import './index.css';
 
 function App() {
@@ -18,6 +20,7 @@ function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [selectedFile, setSelectedFile] = useState(null);
   const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
   const [loadingText, setLoadingText] = useState('Analizando patrones matemáticos...');
   const inputRef = useRef(null);
 
@@ -90,7 +93,7 @@ function App() {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/analyze', {
+      const response = await fetch(`${API_BASE}/api/analyze`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
@@ -127,7 +130,7 @@ function App() {
     if (targetSymbol) queryParams.append('target_symbol', targetSymbol);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/analyze?${queryParams.toString()}`, {
+      const response = await fetch(`${API_BASE}/api/analyze?${queryParams.toString()}`, {
         method: 'POST', // Usamos POST igual que handleFile (asumiendo que el backend acepta session_id como param en POST)
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -173,12 +176,19 @@ function App() {
           {role === 'admin' && (
             <button onClick={() => setView('admin')} className="nav-btn warning">Maestro</button>
           )}
+          <button onClick={() => setShowSecurityModal(true)} className="nav-btn" title="Cambiar contraseña">
+            🔒
+          </button>
           <button onClick={toggleTheme} className="theme-toggle-btn" title="Cambiar Tema">
             {theme === 'light' ? '🌙' : '☀️'}
           </button>
           <button onClick={handleLogout} className="nav-btn danger">Salir</button>
         </div>
       </nav>
+
+      {showSecurityModal && (
+        <ChangePasswordModal token={token} onClose={() => setShowSecurityModal(false)} />
+      )}
 
       {view === 'history' && <History token={token} onReportSelect={(sessionId) => handleLoadSession(sessionId)} />}
       {view === 'admin' && <AdminPanel token={token} />}
@@ -194,9 +204,9 @@ function App() {
             <h1 className="main-title">Audita tu Estrategia</h1>
             <p className="subtitle">Sube tu archivo CSV de Binance o Hyperliquid y descubre tu ventaja matemática.</p>
             
-            <input ref={inputRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => { if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]); }} />
+            <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }} onChange={(e) => { if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]); }} />
             <button className="upload-btn" onClick={() => inputRef.current.click()}>
-              {dragActive ? 'Suelta el archivo aquí...' : 'Subir Historial CSV'}
+              {dragActive ? 'Suelta el archivo aquí...' : 'Subir Historial'}
             </button>
             <p className="text-secondary" style={{ marginTop: '20px', fontSize: '0.85rem' }}>Binance PNL History &middot; Hyperliquid Fills</p>
           </div>

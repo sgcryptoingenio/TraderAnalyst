@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Dashboard from './Dashboard';
+import API_BASE from '../api';
 
 const AdminPanel = ({ token }) => {
   const [users, setUsers] = useState([]);
@@ -14,9 +15,9 @@ const AdminPanel = ({ token }) => {
   const fetchAdminData = async () => {
     try {
       const [usersRes, reportsRes, settingsRes] = await Promise.all([
-        fetch('http://localhost:8000/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:8000/api/admin/reports', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:8000/api/settings', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch(`${API_BASE}/api/admin/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_BASE}/api/admin/reports`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_BASE}/api/settings`, { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
 
       if (!usersRes.ok || !reportsRes.ok) throw new Error('No tienes permisos o hubo un error');
@@ -42,7 +43,7 @@ const AdminPanel = ({ token }) => {
   const handleRowClick = async (reportId) => {
     setReportLoading(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/report/${reportId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/api/report/${reportId}`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (!res.ok) throw new Error('Error al cargar detalle');
       const data = await res.json();
       setSelectedReport(data.report);
@@ -61,7 +62,7 @@ const AdminPanel = ({ token }) => {
         handleRowClick(selectedReport.id);
         return;
       }
-      const res = await fetch(`http://localhost:8000/api/admin/report/${selectedReport.id}/analyze`, {
+      const res = await fetch(`${API_BASE}/api/admin/report/${selectedReport.id}/analyze`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ target_symbol: symbol })
@@ -79,7 +80,7 @@ const AdminPanel = ({ token }) => {
   const handleDeleteUser = async (userId) => {
     if (!window.confirm("¿Estás seguro de que deseas eliminar este estudiante?")) return;
     try {
-      const res = await fetch(`http://localhost:8000/api/admin/users/${userId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
       if (!res.ok) throw new Error('Error al eliminar');
       fetchAdminData();
     } catch (err) { alert(err.message); }
@@ -88,7 +89,7 @@ const AdminPanel = ({ token }) => {
   const handleToggleRole = async (userId) => {
     if (!window.confirm("¿Estás seguro de cambiar el rol de este usuario?")) return;
     try {
-      const res = await fetch(`http://localhost:8000/api/admin/users/${userId}/role`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/api/admin/users/${userId}/role`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } });
       if (!res.ok) throw new Error('Error al cambiar rol');
       fetchAdminData();
     } catch (err) { alert(err.message); }
@@ -96,7 +97,7 @@ const AdminPanel = ({ token }) => {
 
   const handleSaveSettings = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/admin/settings`, { 
+      const res = await fetch(`${API_BASE}/api/admin/settings`, { 
         method: 'PUT', 
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ mentorship_link: mentorshipLink })
@@ -156,7 +157,7 @@ const AdminPanel = ({ token }) => {
                     <td style={{color: parseFloat(r.total_pnl) >= 0 ? 'var(--win-color)' : 'var(--loss-color)'}}>{r.total_pnl}</td>
                     <td>{new Date(r.upload_time).toLocaleString()}</td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => window.open(`http://localhost:8000/api/report/${r.id}/download?token=${token}`, '_blank')} style={{background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem'}}>Descargar CSV/Excel</button>
+                      <button onClick={() => window.open(`${API_BASE}/api/report/${r.id}/download?token=${token}`, '_blank')} style={{background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem'}}>Descargar CSV/Excel</button>
                     </td>
                   </tr>
                 ))}

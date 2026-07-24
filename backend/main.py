@@ -33,6 +33,10 @@ class UserAuth(BaseModel):
     username: str
     password: str
 
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
 def get_current_user(authorization: str = Header(None), token: str = None):
     if not authorization and not token:
         raise HTTPException(status_code=401, detail="No autenticado")
@@ -76,6 +80,31 @@ def login(user: UserAuth, db = Depends(get_db)):
 
     access_token = create_access_token(data={"sub": str(db_user["id"]), "username": user.username, "role": db_user["role"]})
     return {"access_token": access_token, "token_type": "bearer", "username": user.username, "role": db_user["role"]}
+
+@app.post("/api/change-password")
+def change_password(
+    req: ChangePasswordRequest, 
+    user_id: int = Depends(get_current_user), 
+    db = Depends(get_db)
+):
+    conn = db
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,))
+    db_user = cursor.fetchone()
+    
+    if not db_user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+    if not verify_password(req.old_password, db_user["password_hash"]):
+        raise HTTPException(status_code=400, detail="La contraseña actual es incorrecta")
+        
+    hashed_new_password = get_password_hash(req.new_password)
+    
+    cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hashed_new_password, user_id))
+    conn.commit()
+    
+    return {"success": True, "message": "Contraseña actualizada exitosamente"}
 
 @app.get("/api/history")
 def get_history(user_id: int = Depends(get_current_user), db = Depends(get_db)):

@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Brush } from 'recharts';
 import TVChart from './TVChart';
 import html2pdf from 'html2pdf.js';
+import API_BASE from '../api';
 
 const Dashboard = ({ data, onSymbolChange }) => {
   const [mentorshipLink, setMentorshipLink] = useState('');
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/settings')
+    fetch(`${API_BASE}/api/settings`)
       .then(res => res.json())
       .then(d => setMentorshipLink(d.mentorship_link || ''))
       .catch(err => console.error(err));

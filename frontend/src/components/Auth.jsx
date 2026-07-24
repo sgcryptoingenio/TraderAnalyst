@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import API_BASE from '../api';
+
 const Auth = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
@@ -9,7 +11,7 @@ const Auth = ({ onLogin }) => {
     e.preventDefault();
     setError('');
     try {
-      const url = isLogin ? 'http://localhost:8000/api/login' : 'http://localhost:8000/api/register';
+      const url = isLogin ? `${API_BASE}/api/login` : `${API_BASE}/api/register`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

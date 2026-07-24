@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import API_BASE from '../api';
 
 const History = ({ token, onReportSelect }) => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/history', { 
+    fetch(`${API_BASE}/api/history`, { 
       headers: { 'Authorization': `Bearer ${token}` } 
     })
       .then(res => res.json())
@@ -77,7 +78,7 @@ const History = ({ token, onReportSelect }) => {
                     <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                       <button 
                         className="nav-btn" 
-                        onClick={() => window.open(`http://localhost:8000/api/report/${r.id}/download?token=${token}`, '_blank')}
+                        onClick={() => window.open(`${API_BASE}/api/report/${r.id}/download?token=${token}`, '_blank')}
                       >
                         ⬇️ Descargar
                       </button>
