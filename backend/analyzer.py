@@ -109,8 +109,8 @@ async def analyze_trades(df, target_symbol=None):
                 sym_trades = sym_trades.sort_values('exit_time')
                 market_df = market_df.sort_values('timestamp')
                 
-                sym_trades['exit_time'] = pd.to_datetime(sym_trades['exit_time'], utc=True).dt.tz_localize(None)
-                market_df['timestamp'] = pd.to_datetime(market_df['timestamp'], utc=True).dt.tz_localize(None)
+                sym_trades['exit_time'] = pd.to_datetime(sym_trades['exit_time'], utc=True).dt.tz_localize(None).astype('datetime64[ns]')
+                market_df['timestamp'] = pd.to_datetime(market_df['timestamp'], utc=True).dt.tz_localize(None).astype('datetime64[ns]')
                 
                 merged = pd.merge_asof(
                     sym_trades,
@@ -297,8 +297,8 @@ async def analyze_trades(df, target_symbol=None):
                 
                 if total_symbol_trades > 0:
                     # Vectorized merge_asof for matching trades to nearest preceding candle
-                    symbol_trades['merge_time'] = pd.to_datetime(symbol_trades['entry_time']).dt.tz_localize(None).astype('datetime64[ns]')
-                    market_df['merge_time'] = market_df['timestamp'].dt.tz_localize(None).astype('datetime64[ns]')
+                    symbol_trades['merge_time'] = pd.to_datetime(symbol_trades['entry_time'], utc=True).dt.tz_localize(None).astype('datetime64[ns]')
+                    market_df['merge_time'] = pd.to_datetime(market_df['timestamp'], utc=True).dt.tz_localize(None).astype('datetime64[ns]')
                     
                     symbol_trades = symbol_trades.sort_values('merge_time')
                     market_df = market_df.sort_values('merge_time')
