@@ -119,7 +119,7 @@ def compute_indicators(df):
     """
     Calcula indicadores usando pandas puro para máxima compatibilidad
     """
-    if df.empty or len(df) < 50:
+    if df.empty:
         return df
         
     try:
