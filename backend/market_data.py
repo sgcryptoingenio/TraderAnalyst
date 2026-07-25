@@ -8,10 +8,11 @@ exchange = ccxt.binance({
 
 def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
     """
-    Descarga velas históricas usando CCXT (Binance por defecto para data general de cripto).
+    Descarga velas históricas usando CCXT.
+    Implementa fallbacks secuenciales (Binance -> Bybit -> OKX) para evadir
+    bloqueos geográficos de IP (muy comunes en servidores de nube como Render en US).
     """
     try:
-        # ccxt usa milisegundos para 'since'
         since_ms = None
         if since and pd.notna(since):
             try:
@@ -19,23 +20,48 @@ def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
             except (OSError, ValueError, AttributeError):
                 since_ms = None
         
-        # Limpiar el symbol (EJ: ETHUSD Long -> ETH/USDT para que binance lo encuentre)
-        # Hacemos un mapeo básico
         clean_symbol = symbol.replace('USD', 'USDT')
         if '/' not in clean_symbol:
             clean_symbol = clean_symbol.replace('USDT', '/USDT')
             
-        # Si sigue siendo raro, fallback a BTC/USDT para la demo si falla
-        try:
-            ohlcv = exchange.fetch_ohlcv(clean_symbol, timeframe, since=since_ms, limit=limit)
-        except:
-            ohlcv = exchange.fetch_ohlcv('BTC/USDT', timeframe, since=since_ms, limit=limit)
+        exchanges_to_try = [
+            exchange, # Binance (instancia global)
+            ccxt.bybit({'enableRateLimit': True}),
+            ccxt.okx({'enableRateLimit': True}),
+            ccxt.kucoin({'enableRateLimit': True})
+        ]
+        
+        ohlcv = None
+        last_error = None
+        
+        for ex in exchanges_to_try:
+            try:
+                ohlcv = ex.fetch_ohlcv(clean_symbol, timeframe, since=since_ms, limit=limit)
+                if ohlcv and len(ohlcv) > 0:
+                    break # Éxito
+            except Exception as e:
+                last_error = e
+                continue
+                
+        # Fallback final a BTC/USDT si el símbolo original falló en todos los exchanges
+        if not ohlcv or len(ohlcv) == 0:
+            for ex in exchanges_to_try:
+                try:
+                    ohlcv = ex.fetch_ohlcv('BTC/USDT', timeframe, since=since_ms, limit=limit)
+                    if ohlcv and len(ohlcv) > 0:
+                        break
+                except Exception as e:
+                    continue
+
+        if not ohlcv or len(ohlcv) == 0:
+            print(f"Error crítico: No se pudo obtener data de ningún exchange. Último error: {last_error}")
+            return pd.DataFrame()
             
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms').astype('datetime64[ns]')
         return df
     except Exception as e:
-        print(f"Error fetching data: {e}")
+        print(f"Error fatal fetching data: {e}")
         return pd.DataFrame()
 
 def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
