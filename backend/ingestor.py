@@ -40,43 +40,70 @@ def find_column(columns, candidates):
 
 def is_trade_level_csv(df):
     clean_cols = [str(c).lower().strip() for c in df.columns]
-    # Si tiene type, token, px y amount, probablemente es Hyperliquid
+    # Hyperliquid
     if 'type' in clean_cols and 'token' in clean_cols and 'px' in clean_cols and 'amount' in clean_cols:
         return True
+    # BingX / Kucoin Futures Deal History
+    if ('side' in clean_cols or 'direction' in clean_cols) and ('netprofits' in clean_cols or 'realized p/l' in clean_cols or 'realized_pnl' in clean_cols) and ('average price' in clean_cols or 'price' in clean_cols):
+        # Asegurar que no es un historial de posiciones agrupadas (que tendría exit_time y entry_time juntos)
+        if not ('exit time' in clean_cols and 'entry time' in clean_cols):
+            return True
     return False
 
 def reconstruct_positions_from_trades(df):
     """
-    Convierte un historial de trades individuales (como Hyperliquid)
+    Convierte un historial de trades individuales (como Hyperliquid o BingX Deal History)
     en un historial de posiciones agrupadas.
     """
-    # Usar time_iso para ordenar cronológicamente (de más antiguo a más nuevo)
-    if 'time_iso' in df.columns:
-        df['parsed_time'] = pd.to_datetime(df['time_iso'], errors='coerce')
-    elif 'time' in df.columns:
-        df['parsed_time'] = pd.to_datetime(df['time'], unit='ms', errors='coerce')
-    else:
+    clean_cols = [str(c).lower().strip() for c in df.columns]
+    col_map = dict(zip(clean_cols, df.columns))
+    
+    # Identificar columna de tiempo
+    time_col = find_column(clean_cols, ['time_iso', 'date', 'time', 'fecha', 'timestamp'])
+    if not time_col:
         raise ValueError("No se encontró columna de tiempo para ordenar los trades.")
+        
+    if time_col.lower() in ['time_iso', 'date']:
+        df['parsed_time'] = pd.to_datetime(df[col_map[time_col]], errors='coerce', utc=True).dt.tz_localize(None)
+    else:
+        # Asume unix timestamp
+        df['parsed_time'] = pd.to_datetime(df[col_map[time_col]], unit='ms', errors='coerce', utc=True).dt.tz_localize(None)
         
     df = df.dropna(subset=['parsed_time'])
     df = df.sort_values(by='parsed_time', ascending=True)
+    
+    # Mapeo heurístico de columnas
+    token_col = find_column(clean_cols, ['token', 'futures', 'symbol', 'coin', 'par'])
+    type_col = find_column(clean_cols, ['type', 'side', 'direction'])
+    amount_col = find_column(clean_cols, ['amount', 'transaction amount', 'size', 'qty'])
+    price_col = find_column(clean_cols, ['px', 'average price', 'price', 'precio'])
+    fee_col = find_column(clean_cols, ['fee', 'comisión'])
+    pnl_col = find_column(clean_cols, ['netprofits', 'realized p/l', 'realized_pnl', 'closed_pnl'])
     
     positions = []
     ledger = {}
     
     for _, row in df.iterrows():
-        token = row.get('token', 'UNKNOWN')
-        trade_type = str(row.get('type', '')).strip()
-        amount = clean_numeric(row.get('amount', 0))
-        price = clean_numeric(row.get('px', 0))
-        fee = clean_numeric(row.get('fee', 0))
+        token = row.get(col_map.get(token_col), 'UNKNOWN')
+        trade_type = str(row.get(col_map.get(type_col, ''), '')).strip()
+        amount = clean_numeric(row.get(col_map.get(amount_col), 0))
+        price = clean_numeric(row.get(col_map.get(price_col), 0))
+        fee = clean_numeric(row.get(col_map.get(fee_col), 0)) if fee_col else 0
+        reported_pnl = clean_numeric(row.get(col_map.get(pnl_col), 0)) if pnl_col else 0
         time_val = row['parsed_time']
         
         abs_amount = abs(amount)
         if abs_amount == 0 or pd.isna(price): continue
             
-        if 'Open' in trade_type:
-            side = 'Long' if amount > 0 else 'Short'
+        is_open = 'Open' in trade_type or trade_type.lower() in ['buy', 'long']
+        is_close = 'Close' in trade_type or trade_type.lower() in ['sell', 'short']
+        
+        if (is_open and not is_close) or (is_close and token not in ledger):
+            # Si dice Buy, o si dice Sell pero no tenemos posición (abriendo un Short)
+            if 'Open' in trade_type:
+                side = 'Long' if 'Long' in trade_type else 'Short'
+            else:
+                side = 'Long' if trade_type.lower() in ['buy', 'long'] else 'Short'
             
             if token not in ledger:
                 ledger[token] = {
@@ -92,23 +119,26 @@ def reconstruct_positions_from_trades(df):
                 ledger[token]['cost_basis'] += (abs_amount * price)
                 ledger[token]['accumulated_fee'] += fee
                 
-        elif 'Close' in trade_type:
+        elif is_close or ('Close' in trade_type):
             if token in ledger:
                 pos = ledger[token]
                 avg_entry = pos['cost_basis'] / pos['amount'] if pos['amount'] > 0 else 0
                 close_qty = min(abs_amount, pos['amount'])
                 
-                if pos['side'] == 'Long':
-                    gross_pnl = (price - avg_entry) * close_qty
+                # Si el CSV no provee PnL realizado, lo calculamos
+                if reported_pnl == 0 and not pnl_col:
+                    if pos['side'] == 'Long':
+                        gross_pnl = (price - avg_entry) * close_qty
+                    else:
+                        gross_pnl = (avg_entry - price) * close_qty
+                    net_pnl = gross_pnl - fee - pos['accumulated_fee']
                 else:
-                    gross_pnl = (avg_entry - price) * close_qty
-                    
-                net_pnl = gross_pnl - fee - pos['accumulated_fee']
+                    net_pnl = reported_pnl
                 
                 symbol = str(token).replace('-', '')
                 
                 positions.append({
-                    'exchange': 'Hyperliquid',
+                    'exchange': 'Generic/FIFO',
                     'symbol': symbol,
                     'contract_type': 'USDT-M',
                     'side': pos['side'],
