@@ -21,6 +21,23 @@ app = FastAPI()
 frontend_url = os.getenv("FRONTEND_URL")
 origins = [frontend_url] if frontend_url else ["*"]
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+import traceback
+
+@app.middleware("http")
+async def catch_exceptions_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as exc:
+        err_msg = traceback.format_exc()
+        print("\n=== CRASH TRACEBACK ===")
+        print(err_msg)
+        print("=======================\n")
+        with open("crash.log", "w", encoding="utf-8") as f:
+            f.write(err_msg)
+        return JSONResponse(status_code=500, content={"detail": f"Error capturado: {str(exc)}. Revisa crash.log."})
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -110,11 +127,11 @@ def change_password(
 def get_history(user_id: int = Depends(get_current_user), db = Depends(get_db)):
     conn = db
     cursor = conn.cursor()
-    cursor.execute("SELECT id, filename, exchange_source, upload_date FROM upload_sessions WHERE user_id = ? ORDER BY upload_date DESC", (user_id,))
+    cursor.execute("SELECT id, filename, exchange, total_trades, win_rate, total_pnl, upload_time FROM reports WHERE user_id = ? ORDER BY upload_time DESC", (user_id,))
     rows = cursor.fetchall()
     
-    history = [dict(row) for row in rows]
-    return {"success": True, "history": history}
+    reports = [dict(row) for row in rows]
+    return {"success": True, "reports": reports}
 
 def require_admin(authorization: str = Header(None), token: str = None):
     if not authorization and not token:
@@ -208,8 +225,46 @@ async def get_analysis(
         "success": True,
         "exchange": exchange_name,
         "metrics": metrics,
-        "mentorship_link": mentorship_link
+        "mentorship_link": mentorship_link,
+        "active_symbol": target_symbol
     }
+
+@app.get("/api/market-data/{symbol:path}")
+def get_market_data(symbol: str):
+    from market_data import fetch_ohlcv, compute_indicators
+    import numpy as np
+    import pandas as pd
+    
+    df = fetch_ohlcv(symbol, timeframe='15m', limit=500)
+    if df.empty:
+        # Fallback
+        df = fetch_ohlcv('BTC/USDT', timeframe='15m', limit=500)
+        if df.empty:
+            raise HTTPException(status_code=404, detail="No data found")
+        
+    df = compute_indicators(df)
+    
+    df = df.replace([np.inf, -np.inf], np.nan)
+    df = df.where(pd.notnull(df), None)
+    
+    data = []
+    for _, row in df.iterrows():
+        t = int(row['timestamp'].timestamp())
+        data.append({
+            'time': t,
+            'open': row['open'],
+            'high': row['high'],
+            'low': row['low'],
+            'close': row['close'],
+            'EMA_9': row.get('EMA_9'),
+            'EMA_21': row.get('EMA_21'),
+            'RSI_14': row.get('RSI_14'),
+            'MACD': row.get('MACD'),
+            'MACD_Signal': row.get('MACD_Signal'),
+            'MACD_Hist': row.get('MACD_Hist')
+        })
+        
+    return {"success": True, "data": data}
 
 @app.post("/api/analyze")
 async def analyze_history(
@@ -221,7 +276,12 @@ async def analyze_history(
     if not file.filename:
         raise HTTPException(status_code=400, detail="No se proporcionó ningún archivo")
 
-    temp_file_path = f"temp_{file.filename}"
+    import uuid
+    import re
+    _, ext = os.path.splitext(file.filename)
+    ext = re.sub(r'[^a-zA-Z0-9.]', '', ext)
+    safe_filename = f"doc_{uuid.uuid4().hex}{ext}"
+    temp_file_path = f"temp_{safe_filename}"
     
     try:
         cursor = db.cursor()
@@ -247,7 +307,7 @@ async def analyze_history(
         # to avoid flooding the history with individual pair clicks
         if not target_symbol and metrics and 'total_trades' in metrics:
             os.makedirs("uploads", exist_ok=True)
-            perm_file_path = f"uploads/{user_id}_{int(time.time())}_{file.filename}"
+            perm_file_path = f"uploads/{user_id}_{int(time.time())}_{safe_filename}"
             shutil.move(temp_file_path, perm_file_path)
     
             conn = db
@@ -283,7 +343,8 @@ async def analyze_history(
             "success": True,
             "exchange": exchange_name,
             "metrics": metrics,
-            "mentorship_link": mentorship_link
+            "mentorship_link": mentorship_link,
+            "active_symbol": target_symbol
         }
 
     except ValueError as ve:
@@ -298,26 +359,25 @@ async def analyze_history(
 async def get_report_details(report_id: int, user_id: int = Depends(get_current_user), db = Depends(get_db)):
     conn = db
     cursor = conn.cursor()
-    # Check if admin
-    cursor.execute("SELECT role FROM users WHERE id = ?", (user_id,))
-    user = cursor.fetchone()
-    if not user or user['role'] != 'admin':
-
-        raise HTTPException(status_code=403, detail="Acceso denegado")
-
+    
     cursor.execute("SELECT * FROM reports WHERE id = ?", (report_id,))
     report = cursor.fetchone()
     
-    
     if not report:
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
+
+    cursor.execute("SELECT role FROM users WHERE id = ?", (user_id,))
+    user = cursor.fetchone()
+    if not user or (user['role'] != 'admin' and report['user_id'] != user_id):
+        raise HTTPException(status_code=403, detail="Acceso denegado")
 
     return {
         "success": True,
         "report": {
             "id": report['id'],
             "exchange": report['exchange'],
-            "metrics": json.loads(report['full_data']) if report['full_data'] else {}
+            "metrics": json.loads(report['full_data']) if report['full_data'] else {},
+            "active_symbol": None
         }
     }
 
@@ -409,24 +469,21 @@ def update_settings(settings: SettingsUpdate, admin_payload: dict = Depends(requ
 class AnalyzeRequest(BaseModel):
     target_symbol: str
 
-@app.post("/api/admin/report/{report_id}/analyze")
-async def admin_analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: int = Depends(get_current_user), db = Depends(get_db)):
+@app.post("/api/report/{report_id}/analyze")
+async def analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: int = Depends(get_current_user), db = Depends(get_db)):
     conn = db
     cursor = conn.cursor()
     
-    # Check if admin
-    cursor.execute("SELECT role FROM users WHERE id = ?", (user_id,))
-    user = cursor.fetchone()
-    if not user or user['role'] != 'admin':
-
-        raise HTTPException(status_code=403, detail="Acceso denegado")
-
     cursor.execute("SELECT * FROM reports WHERE id = ?", (report_id,))
     report = cursor.fetchone()
     
-    
     if not report:
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
+
+    cursor.execute("SELECT role FROM users WHERE id = ?", (user_id,))
+    user = cursor.fetchone()
+    if not user or (user['role'] != 'admin' and report['user_id'] != user_id):
+        raise HTTPException(status_code=403, detail="Acceso denegado")
 
     file_path = report['file_path']
     if not file_path or not os.path.exists(file_path):
@@ -445,7 +502,8 @@ async def admin_analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_
             "success": True,
             "exchange": report['exchange'],
             "metrics": metrics,
-            "mentorship_link": mentorship_link
+            "mentorship_link": mentorship_link,
+            "active_symbol": req.target_symbol
         }
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))

@@ -1,43 +1,43 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap');
 
 :root {
-  /* DARK MODE (Default Premium) */
-  --bg-color: #09090b; /* Deep zinc */
-  --bg-gradient: radial-gradient(circle at top right, rgba(16, 185, 129, 0.05), transparent 50%),
-                 radial-gradient(circle at bottom left, rgba(239, 68, 68, 0.05), transparent 50%);
-  --card-bg: rgba(24, 24, 27, 0.65);
-  --card-hover-bg: rgba(39, 39, 42, 0.8);
-  --primary: #10b981; /* Emerald */
-  --primary-glow: rgba(16, 185, 129, 0.4);
-  --win-color: #10b981;
-  --loss-color: #ef4444; /* Rose/Red */
-  --loss-glow: rgba(239, 68, 68, 0.4);
-  --text-primary: #f4f4f5;
-  --text-secondary: #a1a1aa;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(255, 255, 255, 0.15);
-  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --glass-blur: blur(16px);
-  --font-main: 'Inter', -apple-system, sans-serif;
+  /* DARK MODE (Cinematic Gold Premium) */
+  --bg-color: #06060a; /* Deep dark */
+  --bg-gradient: radial-gradient(circle at top right, rgba(245, 166, 35, 0.08), transparent 50%),
+                 radial-gradient(circle at bottom left, rgba(255, 208, 107, 0.08), transparent 50%);
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-hover-bg: rgba(255, 255, 255, 0.05);
+  --primary: #f5a623; /* Gold */
+  --primary-glow: rgba(245, 166, 35, 0.4);
+  --win-color: #00e87a; /* Green */
+  --loss-color: #ff3b55; /* Red */
+  --loss-glow: rgba(255, 59, 85, 0.4);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.5);
+  --border-color: rgba(245, 166, 35, 0.15); /* Subtle gold border */
+  --border-hover: rgba(245, 166, 35, 0.3);
+  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --glass-blur: blur(20px);
+  --font-main: 'Outfit', -apple-system, sans-serif;
   --font-display: 'Outfit', -apple-system, sans-serif;
 }
 
 body.light-mode {
-  /* LIGHT MODE (Clean & Premium) */
+  /* LIGHT MODE (Clean Gold Premium) */
   --bg-color: #f8fafc; /* Slate 50 */
-  --bg-gradient: radial-gradient(circle at top right, rgba(16, 185, 129, 0.08), transparent 50%),
-                 radial-gradient(circle at bottom left, rgba(239, 68, 68, 0.08), transparent 50%);
-  --card-bg: rgba(255, 255, 255, 0.7);
+  --bg-gradient: radial-gradient(circle at top right, rgba(245, 166, 35, 0.1), transparent 50%),
+                 radial-gradient(circle at bottom left, rgba(255, 208, 107, 0.1), transparent 50%);
+  --card-bg: rgba(255, 255, 255, 0.8);
   --card-hover-bg: rgba(255, 255, 255, 0.95);
-  --primary: #059669;
-  --primary-glow: rgba(5, 150, 105, 0.3);
+  --primary: #f5a623;
+  --primary-glow: rgba(245, 166, 35, 0.3);
   --win-color: #059669;
   --loss-color: #dc2626;
   --loss-glow: rgba(220, 38, 38, 0.3);
   --text-primary: #0f172a;
   --text-secondary: #64748b;
-  --border-color: rgba(0, 0, 0, 0.06);
-  --border-hover: rgba(0, 0, 0, 0.12);
+  --border-color: rgba(245, 166, 35, 0.2);
+  --border-hover: rgba(245, 166, 35, 0.4);
   --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
   --glass-blur: blur(20px);
 }
@@ -318,18 +318,46 @@ th {
   min-height: 50vh;
 }
 
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid var(--border-color);
-  border-top-color: var(--primary);
+.sabueso-loader {
+  position: relative;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  background: rgba(16, 185, 129, 0.1);
+  border: 2px solid var(--primary);
+  overflow: hidden;
   box-shadow: 0 0 20px var(--primary-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-@keyframes spin {
+.radar {
+  position: absolute;
+  width: 50%;
+  height: 50%;
+  background: conic-gradient(from 0deg, transparent 70%, var(--primary) 100%);
+  transform-origin: bottom right;
+  top: 0;
+  left: 0;
+  animation: scan 2s linear infinite;
+}
+
+.magnifier {
+  position: absolute;
+  font-size: 2rem;
+  z-index: 10;
+  animation: bob 1s ease-in-out infinite alternate;
+}
+
+@keyframes scan {
+  from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@keyframes bob {
+  from { transform: translateY(-5px); }
+  to { transform: translateY(5px); }
 }
 
 .loading-text {
@@ -359,4 +387,72 @@ th {
   white-space: nowrap;
   pointer-events: none;
   z-index: 0;
+}
+
+/* --- Cinematic Hero Styles for Upload View --- */
+.hero-upload {
+  position: relative;
+  text-align: center;
+  padding: 60px 20px;
+  overflow: hidden;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+.logo-hero-bg {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(70vw, 500px);
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 0;
+  filter: grayscale(20%) sepia(100%) saturate(300%) brightness(1.2);
+  animation: heroPulse 6s ease-in-out infinite;
+}
+@keyframes heroPulse {
+  0%, 100% { opacity: 0.08; transform: translate(-50%, -50%) scale(1); }
+  50%       { opacity: 0.12; transform: translate(-50%, -50%) scale(1.04); }
+}
+.hero-chip {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: rgba(245,166,35,0.1);
+  border: 1px solid rgba(245,166,35,0.25);
+  border-radius: 50px; padding: 8px 20px;
+  font-size: 0.8rem; font-weight: 600; letter-spacing: 1px;
+  color: #ffd06b; margin-bottom: 30px;
+  backdrop-filter: blur(10px);
+  position: relative; z-index: 1;
+}
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--win-color); animation: pulseAnim 1.5s infinite; }
+@keyframes pulseAnim { 0%,100%{box-shadow:0 0 0 0 rgba(16, 185, 129, 0.5)} 50%{box-shadow:0 0 0 8px rgba(16, 185, 129, 0)} }
+.hero-title {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 900; line-height: 0.95;
+  letter-spacing: -2px; margin-bottom: 20px;
+  position: relative; z-index: 1;
+}
+.hero-title .line1 { display: block; color: var(--text-primary); }
+.hero-title .line2 { display: block; background: linear-gradient(135deg, var(--primary), #ffd06b 50%, #fff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero-desc {
+  font-size: clamp(1rem, 1.5vw, 1.15rem);
+  color: var(--text-secondary); max-width: 600px; margin: 0 auto 40px;
+  line-height: 1.6; font-weight: 300;
+  position: relative; z-index: 1;
+}
+.file-drop-area {
+  position: relative; z-index: 1;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--border-color);
+  border-radius: 20px;
+  padding: 40px 20px;
+  transition: all 0.3s;
+  cursor: pointer;
+  max-width: 500px;
+  margin: 0 auto;
+  backdrop-filter: blur(10px);
+}
+.file-drop-area:hover, .file-drop-area.active {
+  background: rgba(245,166,35,0.05);
+  border-color: var(--primary);
 }

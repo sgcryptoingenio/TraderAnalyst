@@ -1,18 +1,23 @@
-import ccxt.async_support as ccxt
+import ccxt
 import pandas as pd
 
-# Instancia global para evitar recargar los mercados de Binance en cada petición (ahorra ~3 segundos)
+# Instancia global síncrona
 exchange = ccxt.binance({
     'enableRateLimit': True,
 })
 
-async def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
+def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
     """
     Descarga velas históricas usando CCXT (Binance por defecto para data general de cripto).
     """
     try:
         # ccxt usa milisegundos para 'since'
-        since_ms = int(since.timestamp() * 1000) if since else None
+        since_ms = None
+        if since and pd.notna(since):
+            try:
+                since_ms = int(since.timestamp() * 1000)
+            except (OSError, ValueError, AttributeError):
+                since_ms = None
         
         # Limpiar el symbol (EJ: ETHUSD Long -> ETH/USDT para que binance lo encuentre)
         # Hacemos un mapeo básico
@@ -22,9 +27,9 @@ async def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
             
         # Si sigue siendo raro, fallback a BTC/USDT para la demo si falla
         try:
-            ohlcv = await exchange.fetch_ohlcv(clean_symbol, timeframe, since=since_ms, limit=limit)
+            ohlcv = exchange.fetch_ohlcv(clean_symbol, timeframe, since=since_ms, limit=limit)
         except:
-            ohlcv = await exchange.fetch_ohlcv('BTC/USDT', timeframe, since=since_ms, limit=limit)
+            ohlcv = exchange.fetch_ohlcv('BTC/USDT', timeframe, since=since_ms, limit=limit)
             
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms').astype('datetime64[ns]')
@@ -33,7 +38,7 @@ async def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
         print(f"Error fetching data: {e}")
         return pd.DataFrame()
 
-async def get_historical_price(symbol, timestamp):
+def get_historical_price(symbol, timestamp):
     """
     Obtiene el precio de cierre de la vela de 1m más cercana (hacia atrás) al timestamp dado.
     Ideal para calcular equivalencias USD de PnL en contratos COIN-M.
@@ -46,7 +51,7 @@ async def get_historical_price(symbol, timestamp):
             clean_symbol = clean_symbol.replace('USDT', '/USDT')
             
         try:
-            ohlcv = await exchange.fetch_ohlcv(clean_symbol, '1m', since=since_ms, limit=2)
+            ohlcv = exchange.fetch_ohlcv(clean_symbol, '1m', since=since_ms, limit=2)
         except:
             return None
             

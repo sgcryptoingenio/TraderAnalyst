@@ -40,10 +40,17 @@ async def analyze_trades(df, target_symbol=None):
     
     # Fetch historical prices for COIN-M USD conversion
     pnl_usd_list = []
+    price_cache = {}
     for _, row in df.iterrows():
         pnl = row['reported_pnl']
         if row['contract_type'] == 'COIN-M' and pd.notna(row['exit_time']):
-            price_usd = await get_historical_price(row['symbol'], row['exit_time'])
+            cache_key = f"{row['symbol']}_{row['exit_time']}"
+            if cache_key in price_cache:
+                price_usd = price_cache[cache_key]
+            else:
+                price_usd = get_historical_price(row['symbol'], row['exit_time'])
+                price_cache[cache_key] = price_usd
+                
             if price_usd:
                 pnl_usd_list.append(pnl * price_usd)
             else:
@@ -66,7 +73,9 @@ async def analyze_trades(df, target_symbol=None):
     
     # Format exit_time for equity curve
     if equity_curve['exit_time'].notna().any():
-        equity_curve['exit_time'] = equity_curve['exit_time'].dt.strftime('%Y-%m-%d %H:%M')
+        equity_curve['exit_time'] = equity_curve['exit_time'].apply(
+            lambda x: f"{x.year:04d}-{x.month:02d}-{x.day:02d} {x.hour:02d}:{x.minute:02d}" if pd.notna(x) else 'Unknown'
+        )
     else:
         equity_curve['exit_time'] = [f"Trade {i+1}" for i in range(len(equity_curve))]
     
@@ -144,12 +153,16 @@ async def analyze_trades(df, target_symbol=None):
     # Top Trades
     top_winners = df.nlargest(10, 'true_pnl_pct')[['symbol', 'side', 'true_pnl_pct', 'reported_pnl', 'exit_time']].copy()
     if top_winners['exit_time'].notna().any():
-        top_winners['exit_time'] = top_winners['exit_time'].dt.strftime('%Y-%m-%d')
+        top_winners['exit_time'] = top_winners['exit_time'].apply(
+            lambda x: f"{x.year:04d}-{x.month:02d}-{x.day:02d}" if pd.notna(x) else 'N/A'
+        )
     top_winners['exit_time'] = top_winners['exit_time'].fillna('N/A')
     
     top_losers = df.nsmallest(10, 'true_pnl_pct')[['symbol', 'side', 'true_pnl_pct', 'reported_pnl', 'exit_time']].copy()
     if top_losers['exit_time'].notna().any():
-        top_losers['exit_time'] = top_losers['exit_time'].dt.strftime('%Y-%m-%d')
+        top_losers['exit_time'] = top_losers['exit_time'].apply(
+            lambda x: f"{x.year:04d}-{x.month:02d}-{x.day:02d}" if pd.notna(x) else 'N/A'
+        )
     top_losers['exit_time'] = top_losers['exit_time'].fillna('N/A')
     
     # -- MARKET DATA AND STRATEGY DETECTION --
@@ -173,7 +186,7 @@ async def analyze_trades(df, target_symbol=None):
             symbol_to_fetch = df['symbol'].value_counts().idxmax()
             start_time = df['entry_time'].min()
             
-            market_df = await fetch_ohlcv(symbol_to_fetch, timeframe='1h', limit=500, since=start_time)
+            market_df = fetch_ohlcv(symbol_to_fetch, timeframe='1h', limit=500, since=start_time)
             
             if not market_df.empty:
                 market_df = compute_indicators(market_df)
@@ -209,8 +222,8 @@ async def analyze_trades(df, target_symbol=None):
                 
                 if total_symbol_trades > 0:
                     # Vectorized merge_asof for matching trades to nearest preceding candle
-                    symbol_trades['merge_time'] = pd.to_datetime(symbol_trades['entry_time']).dt.tz_localize(None)
-                    market_df['merge_time'] = market_df['timestamp'].dt.tz_localize(None)
+                    symbol_trades['merge_time'] = pd.to_datetime(symbol_trades['entry_time']).dt.tz_localize(None).astype('datetime64[ns]')
+                    market_df['merge_time'] = market_df['timestamp'].dt.tz_localize(None).astype('datetime64[ns]')
                     
                     symbol_trades = symbol_trades.sort_values('merge_time')
                     market_df = market_df.sort_values('merge_time')

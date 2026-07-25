@@ -1,0 +1,62 @@
+Traceback (most recent call last):
+  File "C:\Users\santiagogiraldogutie\Desktop\desarrollos con IA\Antigravity\Analista\trading analist\backend\main.py", line 31, in catch_exceptions_middleware
+    return await call_next(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\starlette\routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\fastapi\routing.py", line 2685, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\fastapi\routing.py", line 1267, in handle
+    await super().handle(scope, receive, send)
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\starlette\routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\fastapi\routing.py", line 151, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\fastapi\routing.py", line 137, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\fastapi\routing.py", line 732, in app
+    response = actual_response_class(content, **response_args)
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\starlette\responses.py", line 192, in __init__
+    super().__init__(content, status_code, headers, media_type, background)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\starlette\responses.py", line 45, in __init__
+    self.body = self.render(content)
+                ~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\starlette\responses.py", line 195, in render
+    return json.dumps(
+           ~~~~~~~~~~^
+        content,
+        ^^^^^^^^
+    ...<3 lines>...
+        separators=(",", ":"),
+        ^^^^^^^^^^^^^^^^^^^^^^
+    ).encode("utf-8")
+    ^
+  File "C:\Users\santiagogiraldogutie\AppData\Local\Python\pythoncore-3.14-64\Lib\json\__init__.py", line 242, in dumps
+    **kw).encode(obj)
+          ~~~~~~^^^^^
+  File "C:\Users\santiagogiraldogutie\AppData\Local\Python\pythoncore-3.14-64\Lib\json\encoder.py", line 202, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+  File "C:\Users\santiagogiraldogutie\AppData\Local\Python\pythoncore-3.14-64\Lib\json\encoder.py", line 263, in iterencode
+    return _iterencode(o, 0)
+ValueError: Out of range float values are not JSON compliant: nan
+when serializing dict item 'RSI_14'
+when serializing list item 0
+when serializing dict item 'data'

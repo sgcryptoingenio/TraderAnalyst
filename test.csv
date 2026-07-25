@@ -1,0 +1,2 @@
+symbol,side,entry_time,exit_time,entry_price,exit_price,size,reported_pnl
+BTCUSDT,Long,2023-01-01 10:00:00,2023-01-01 11:00:00,20000,21000,1,1000

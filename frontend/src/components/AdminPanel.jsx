@@ -62,7 +62,7 @@ const AdminPanel = ({ token }) => {
         handleRowClick(selectedReport.id);
         return;
       }
-      const res = await fetch(`${API_BASE}/api/admin/report/${selectedReport.id}/analyze`, {
+      const res = await fetch(`${API_BASE}/api/report/${selectedReport.id}/analyze`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ target_symbol: symbol })
@@ -175,7 +175,7 @@ const AdminPanel = ({ token }) => {
                 type="text" 
                 value={mentorshipLink} 
                 onChange={(e) => setMentorshipLink(e.target.value)} 
-                placeholder="https://calendly.com/tu-usuario" 
+                placeholder="https://wa.me/573104036937?text=Hola..." 
                 style={{width: '100%', padding: '10px', marginTop: '5px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '5px'}}
               />
             </div>

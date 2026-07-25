@@ -5,6 +5,7 @@ import Auth from './components/Auth';
 import History from './components/History';
 import AdminPanel from './components/AdminPanel';
 import ChangePasswordModal from './components/ChangePasswordModal';
+import Landing from './components/Landing';
 import API_BASE from './api';
 import './index.css';
 
@@ -21,6 +22,7 @@ function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [showLanding, setShowLanding] = useState(true);
   const [loadingText, setLoadingText] = useState('Analizando patrones matemáticos...');
   const inputRef = useRef(null);
 
@@ -77,6 +79,7 @@ function App() {
     setRole('user');
     setData(null);
     setView('upload');
+    setShowLanding(true);
   };
 
   const handleFile = async (file, targetSymbol = null) => {
@@ -119,21 +122,29 @@ function App() {
     }
   };
 
-  const handleLoadSession = async (sessionId, targetSymbol = null) => {
-    if (!sessionId) return;
+  const handleLoadSession = async (reportId, targetSymbol = null) => {
+    if (!reportId) return;
     setLoading(true);
     setError('');
-    setCurrentSessionId(sessionId);
-
-    // Si pasamos un symbol, lo concatenamos a los query params
-    const queryParams = new URLSearchParams({ session_id: sessionId });
-    if (targetSymbol) queryParams.append('target_symbol', targetSymbol);
+    setCurrentSessionId(reportId);
 
     try {
-      const response = await fetch(`${API_BASE}/api/analyze?${queryParams.toString()}`, {
-        method: 'POST', // Usamos POST igual que handleFile (asumiendo que el backend acepta session_id como param en POST)
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      let response;
+      if (targetSymbol) {
+        response = await fetch(`${API_BASE}/api/report/${reportId}/analyze`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ target_symbol: targetSymbol })
+        });
+      } else {
+        response = await fetch(`${API_BASE}/api/report/${reportId}`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
 
       if (response.status === 401) {
         handleLogout();
@@ -146,7 +157,11 @@ function App() {
       }
 
       const result = await response.json();
-      setData(result);
+      if (!targetSymbol && result.report) {
+         setData(result.report);
+      } else {
+         setData(result);
+      }
       setView('dashboard');
     } catch (err) {
       setError(err.message);
@@ -156,6 +171,9 @@ function App() {
   };
 
   if (!token) {
+    if (showLanding) {
+      return <Landing onEnterApp={() => setShowLanding(false)} />;
+    }
     return (
       <div className="app-wrapper">
         <Auth onLogin={handleLogin} />
@@ -193,29 +211,35 @@ function App() {
       {view === 'history' && <History token={token} onReportSelect={(sessionId) => handleLoadSession(sessionId)} />}
       {view === 'admin' && <AdminPanel token={token} />}
 
-      {view === 'upload' && (
-        <div className={`upload-section glass-card ${dragActive ? 'active' : ''}`}
-          onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragActive(true); }}
-          onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); }}
-          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
-        >
-          <div className="upload-content">
-            <h1 className="main-title">Audita tu Estrategia</h1>
-            <p className="subtitle">Sube tu archivo CSV de Binance o Hyperliquid y descubre tu ventaja matemática.</p>
-            
+      {view === 'upload' && !loading && (
+        <div className="upload-container hero-upload">
+          <img src="/logo.jpg" alt="" className="logo-hero-bg" aria-hidden="true" />
+          
+          <h2 style={{ fontSize: '2.5rem', marginBottom: '10px', position: 'relative', zIndex: 1 }}>Auditar mi Operativa</h2>
+          <p className="hero-desc" style={{ maxWidth: '750px' }}>
+            Sube el historial de operaciones de tu exchange (compatible con Bitunix, CoinEx, OKX, Binance y más). Sabueso rastreará tus patrones y revelará tu ventaja matemática.
+          </p>
+
+          <div className="file-drop-area"
+            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragActive(true); }}
+            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); }}
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
+          >
+            <span className="file-icon" style={{fontSize: '2.5rem', display: 'block', marginBottom: '10px'}}>📄</span>
+            <span className="file-msg" style={{display: 'block', marginBottom: '16px', fontWeight: '500'}}>Haz clic o arrastra tu archivo CSV/XLSX aquí</span>
             <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }} onChange={(e) => { if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]); }} />
-            <button className="upload-btn" onClick={() => inputRef.current.click()}>
-              {dragActive ? 'Suelta el archivo aquí...' : 'Subir Historial'}
-            </button>
-            <p className="text-secondary" style={{ marginTop: '20px', fontSize: '0.85rem' }}>Binance PNL History &middot; Hyperliquid Fills</p>
+            <button className="nav-btn" onClick={() => inputRef.current.click()} style={{padding: '12px 32px', fontSize: '1rem', background: 'var(--primary)', color: '#000'}}>Seleccionar archivo</button>
           </div>
         </div>
       )}
 
       {loading && (
         <div className="loading-overlay glass-card">
-          <div className="spinner"></div>
+          <div className="sabueso-loader">
+            <div className="radar"></div>
+            <div className="magnifier">🔍</div>
+          </div>
           <h3 className="loading-text">{loadingText}</h3>
         </div>
       )}

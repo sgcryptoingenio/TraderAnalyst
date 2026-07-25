@@ -7,6 +7,30 @@ import API_BASE from '../api';
 const Dashboard = ({ data, onSymbolChange }) => {
   const [mentorshipLink, setMentorshipLink] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  
+  const { exchange, metrics, active_symbol } = data;
+
+  const [marketData, setMarketData] = useState(null);
+  const [marketDataLoading, setMarketDataLoading] = useState(false);
+  const [marketDataError, setMarketDataError] = useState(null);
+
+  useEffect(() => {
+    if (active_symbol) {
+      setMarketDataLoading(true);
+      setMarketDataError(null);
+      fetch(`${API_BASE}/api/market-data/${encodeURIComponent(active_symbol)}`)
+        .then(res => {
+          if (!res.ok) throw new Error('Error al conectar con el Exchange o límite de peticiones (429)');
+          return res.json();
+        })
+        .then(d => {
+          if (d.success) setMarketData(d.data);
+          else throw new Error(d.detail || 'Error en datos de mercado');
+        })
+        .catch(err => setMarketDataError(err.message))
+        .finally(() => setMarketDataLoading(false));
+    }
+  }, [active_symbol]);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/settings`)
@@ -77,7 +101,7 @@ const Dashboard = ({ data, onSymbolChange }) => {
   };
   
   if (!data) return null;
-  const { exchange, metrics, active_symbol } = data;
+  // La desestructuración se movió arriba
   if (!metrics || Object.keys(metrics).length === 0) {
     return <div className="glass-card" style={{ textAlign: 'center', marginTop: '30px' }}><h3 style={{ color: 'var(--loss-color)' }}>Datos Insuficientes</h3></div>;
   }
@@ -242,19 +266,27 @@ const Dashboard = ({ data, onSymbolChange }) => {
         <h3 style={{marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px'}}>🎯 Modelado Predictivo y Análisis Quant</h3>
         <p className="metric-subtitle" style={{textAlign: 'left', marginBottom: '28px'}}>Patrones y correlaciones identificados en base a tu operativa histórica</p>
 
+
         {/* Quant Hit Bars */}
         <div style={{display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '28px'}}>
           {[
-            { label: 'Rompimientos', sublabel: 'Breakout Hits', value: metrics.breakout_hits || 0, max: Math.max(metrics.breakout_hits || 0, metrics.pullback_hits || 0, metrics.vol_spike_hits || 0, 1), color: 'var(--primary)', glow: 'var(--primary-glow)' },
-            { label: 'Retrocesos', sublabel: 'Pullback Hits', value: metrics.pullback_hits || 0, max: Math.max(metrics.breakout_hits || 0, metrics.pullback_hits || 0, metrics.vol_spike_hits || 0, 1), color: '#60a5fa', glow: 'rgba(96,165,250,0.3)' },
-            { label: 'Picos de Volatilidad', sublabel: 'Vol Spike Hits', value: metrics.vol_spike_hits || 0, max: Math.max(metrics.breakout_hits || 0, metrics.pullback_hits || 0, metrics.vol_spike_hits || 0, 1), color: '#f59e0b', glow: 'rgba(245,158,11,0.3)' },
-          ].map(({ label, sublabel, value, max, color, glow }) => {
+            { label: 'Rompimientos', sublabel: 'Breakouts', value: metrics.breakout_hits || 0, isPct: true, max: 100, color: 'var(--primary)', glow: 'var(--primary-glow)' },
+            { label: 'Retrocesos a EMAs', sublabel: 'Pullbacks', value: metrics.pullback_hits || 0, isPct: true, max: 100, color: '#60a5fa', glow: 'rgba(96,165,250,0.3)' },
+            { label: 'Picos de Volatilidad', sublabel: 'Momentum', value: metrics.vol_spike_hits || 0, isPct: true, max: 100, color: '#f59e0b', glow: 'rgba(245,158,11,0.3)' },
+            { label: 'Caza-Reversiones', sublabel: 'Fading', value: metrics.fading_hits || 0, isPct: true, max: 100, color: '#ec4899', glow: 'rgba(236,72,153,0.3)' },
+            { label: 'Reversión a la media', sublabel: 'RSI', value: metrics.rsi_hits || 0, isPct: true, max: 100, color: '#a855f7', glow: 'rgba(168,85,247,0.3)' },
+            { label: 'Rechazo Institucional', sublabel: 'SMC', value: metrics.smc_hits || 0, isPct: true, max: 100, color: '#14b8a6', glow: 'rgba(20,184,166,0.3)' },
+            { label: 'Riesgo de Martingala', sublabel: 'Comportamiento', value: metrics.martingale_hits || 0, isPct: false, max: Math.max(metrics.martingale_hits || 0, 5), color: 'var(--loss-color)', glow: 'var(--loss-glow)' },
+            { label: 'Re-Entradas Perdidas', sublabel: 'Comportamiento', value: metrics.repo_hits || 0, isPct: false, max: Math.max(metrics.repo_hits || 0, 5), color: '#f97316', glow: 'rgba(249,115,22,0.3)' },
+          ].map(({ label, sublabel, value, isPct, max, color, glow }) => {
             const pct = max > 0 ? Math.round((value / max) * 100) : 0;
             return (
-              <div key={sublabel}>
+              <div key={label}>
                 <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '7px'}}>
                   <span style={{fontSize: '0.88rem', fontWeight: '600'}}>{label} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>({sublabel})</span></span>
-                  <span style={{fontWeight: '700', fontSize: '0.95rem', color}}>{value} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>ocurrencias</span></span>
+                  <span style={{fontWeight: '700', fontSize: '0.95rem', color}}>
+                    {value}{isPct ? '%' : ''} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>{isPct ? 'frecuencia' : 'veces'}</span>
+                  </span>
                 </div>
                 <div style={{width: '100%', height: '8px', background: 'var(--border-color)', borderRadius: '99px', overflow: 'hidden'}}>
                   <div style={{
@@ -301,10 +333,14 @@ const Dashboard = ({ data, onSymbolChange }) => {
       </div>
 
       {/* TV CHART */}
-      {metrics.tv_data && metrics.tv_data.ohlcv && metrics.tv_data.ohlcv.length > 0 && active_symbol && (
+      {active_symbol && (
         <div className="glass-card" style={{ marginBottom: '30px' }}>
-          <h3 style={{marginBottom: '20px'}}>Reconstrucción Visual de Trades (TradingView)</h3>
-          <TVChart chartData={metrics.tv_data} />
+          <h3 style={{marginBottom: '20px'}}>Reconstrucción Visual de Trades y Análisis Quant</h3>
+          {marketDataLoading && <div style={{padding: '40px', textAlign: 'center', color: '#a1a1aa'}}>Obteniendo velas en tiempo real y calculando indicadores... ⏳</div>}
+          {marketDataError && <div style={{padding: '40px', textAlign: 'center', color: '#ef4444'}}>⚠️ {marketDataError}</div>}
+          {!marketDataLoading && !marketDataError && marketData && (
+            <TVChart marketData={marketData} symbol={active_symbol} />
+          )}
         </div>
       )}
 
