@@ -99,6 +99,11 @@ const TVChart = ({ marketData }) => {
         const cTimes = cData.map(c => c.time);
         
         markerList.forEach(m => {
+          if (m.time < cTimes[0] || m.time > cTimes[cTimes.length - 1] + 86400) {
+              // Trade is outside the available OHLCV data range, ignore to prevent crashes
+              return; 
+          }
+          
           let snappedTime = m.time;
           // Find closest preceding candle
           for (let i = cTimes.length - 1; i >= 0; i--) {
@@ -108,17 +113,21 @@ const TVChart = ({ marketData }) => {
             }
           }
           
-          // Only add one marker per candle to prevent library crashes
           if (!seenTimes.has(snappedTime)) {
             seenTimes.add(snappedTime);
             uniqueMarkers.push({ ...m, time: snappedTime });
+          } else {
+            // Aggregate if same time
+            const existing = uniqueMarkers.find(x => x.time === snappedTime);
+            if (existing) {
+              existing.text += ` & ${m.text.replace('Entry ', '')}`;
+            }
           }
         });
         
-        // They must also be strictly sorted by time
         uniqueMarkers.sort((a, b) => a.time - b.time);
         
-        console.log("[TVChart] Añadiendo marcadores únicos:", uniqueMarkers.length);
+        console.log("[TVChart] Añadiendo marcadores únicos:", uniqueMarkers.length, uniqueMarkers);
         candleSeries.setMarkers(uniqueMarkers);
       }
 
@@ -129,6 +138,25 @@ const TVChart = ({ marketData }) => {
       syncTimeScales(mainChart, rsiChart, macdChart);
       syncTimeScales(rsiChart, mainChart, macdChart);
       syncTimeScales(macdChart, mainChart, rsiChart);
+      
+      const getSyncCrosshairHandler = (sourceChart, targetChart1, targetChart2, targetSeries1, targetSeries2) => {
+          return (param) => {
+              if (!param.point) {
+                  targetChart1.clearCrosshairPosition();
+                  targetChart2.clearCrosshairPosition();
+                  return;
+              }
+              // Sync to others based on the logical time/index
+              if (param.time) {
+                  targetChart1.setCrosshairPosition(param.point.x, param.time, targetSeries1);
+                  targetChart2.setCrosshairPosition(param.point.x, param.time, targetSeries2);
+              }
+          };
+      };
+
+      mainChart.subscribeCrosshairMove(getSyncCrosshairHandler(mainChart, rsiChart, macdChart, rsiSeries, macdSeries));
+      rsiChart.subscribeCrosshairMove(getSyncCrosshairHandler(rsiChart, mainChart, macdChart, candleSeries, macdSeries));
+      macdChart.subscribeCrosshairMove(getSyncCrosshairHandler(macdChart, mainChart, rsiChart, candleSeries, rsiSeries));
       
       mainChart.timeScale().fitContent();
 
