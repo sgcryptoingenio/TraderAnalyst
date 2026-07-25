@@ -248,6 +248,9 @@ async def analyze_trades(df, target_symbol=None):
             if not market_df.empty:
                 market_df = compute_indicators(market_df)
                 
+                def safe_val(val):
+                    return None if pd.isna(val) else float(val)
+
                 # Vectorized OHLCV formatting
                 ohlcv_data = [
                     {
@@ -255,11 +258,23 @@ async def analyze_trades(df, target_symbol=None):
                         'open': o,
                         'high': h,
                         'low': l,
-                        'close': c
+                        'close': c,
+                        'EMA_9': safe_val(e9),
+                        'EMA_21': safe_val(e21),
+                        'RSI_14': safe_val(rsi),
+                        'MACD': safe_val(macd),
+                        'MACD_Signal': safe_val(macd_s),
+                        'MACD_Hist': safe_val(macd_h)
                     }
-                    for t, o, h, l, c in zip(
+                    for t, o, h, l, c, e9, e21, rsi, macd, macd_s, macd_h in zip(
                         market_df['timestamp'], market_df['open'], 
-                        market_df['high'], market_df['low'], market_df['close']
+                        market_df['high'], market_df['low'], market_df['close'],
+                        market_df.get('EMA_9', pd.Series([None]*len(market_df))),
+                        market_df.get('EMA_21', pd.Series([None]*len(market_df))),
+                        market_df.get('RSI_14', pd.Series([None]*len(market_df))),
+                        market_df.get('MACD', pd.Series([None]*len(market_df))),
+                        market_df.get('MACD_Signal', pd.Series([None]*len(market_df))),
+                        market_df.get('MACD_Hist', pd.Series([None]*len(market_df)))
                     )
                 ]
                 
