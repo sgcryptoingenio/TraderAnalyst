@@ -76,17 +76,34 @@ def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
         if '/' not in clean_symbol:
             clean_symbol = clean_symbol.replace('USDT', '/USDT')
             
+        exchanges_to_try = [
+            exchange, # Binance (instancia global)
+            ccxt.bybit({'enableRateLimit': True}),
+            ccxt.okx({'enableRateLimit': True}),
+            ccxt.kucoin({'enableRateLimit': True})
+        ]
+        
         all_ohlcv = []
         
         # Hacemos iteraciones seguras (máximo 10 para evitar timeouts si el rango es bestial)
         for _ in range(10):
-            try:
-                ohlcv = exchange.fetch_ohlcv(clean_symbol, timeframe, since=since_ms, limit=1000)
-            except:
+            ohlcv = None
+            for ex in exchanges_to_try:
                 try:
-                    ohlcv = exchange.fetch_ohlcv('BTC/USDT', timeframe, since=since_ms, limit=1000)
-                except:
-                    break
+                    ohlcv = ex.fetch_ohlcv(clean_symbol, timeframe, since=since_ms, limit=1000)
+                    if ohlcv and len(ohlcv) > 0:
+                        break
+                except Exception:
+                    continue
+                    
+            if not ohlcv or len(ohlcv) == 0:
+                for ex in exchanges_to_try:
+                    try:
+                        ohlcv = ex.fetch_ohlcv('BTC/USDT', timeframe, since=since_ms, limit=1000)
+                        if ohlcv and len(ohlcv) > 0:
+                            break
+                    except Exception:
+                        continue
                     
             if not ohlcv or len(ohlcv) == 0:
                 break
