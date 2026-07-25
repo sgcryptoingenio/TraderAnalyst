@@ -16,21 +16,15 @@ const Dashboard = ({ data, onSymbolChange }) => {
 
   useEffect(() => {
     if (active_symbol) {
-      setMarketDataLoading(true);
-      setMarketDataError(null);
-      fetch(`${API_BASE}/api/market-data/${encodeURIComponent(active_symbol)}`)
-        .then(res => {
-          if (!res.ok) throw new Error('Error al conectar con el Exchange o límite de peticiones (429)');
-          return res.json();
-        })
-        .then(d => {
-          if (d.success) setMarketData(d.data);
-          else throw new Error(d.detail || 'Error en datos de mercado');
-        })
-        .catch(err => setMarketDataError(err.message))
-        .finally(() => setMarketDataLoading(false));
+      if (metrics && metrics.tv_data) {
+        setMarketData(metrics.tv_data);
+        setMarketDataError(null);
+      } else {
+        setMarketDataError("No hay datos visuales disponibles para este par.");
+      }
+      setMarketDataLoading(false);
     }
-  }, [active_symbol]);
+  }, [active_symbol, metrics]);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/settings`)

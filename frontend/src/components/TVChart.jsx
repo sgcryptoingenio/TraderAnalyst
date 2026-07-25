@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, CrosshairMode } from 'lightweight-charts';
+import { createChart, CrosshairMode, CandlestickSeries, LineSeries, HistogramSeries } from 'lightweight-charts';
 
 const TVChart = ({ marketData }) => {
   const mainChartContainerRef = useRef(null);
@@ -11,224 +11,149 @@ const TVChart = ({ marketData }) => {
   const macdChartRef = useRef(null);
 
   useEffect(() => {
-    if (!marketData || marketData.length === 0) return;
+    console.log("[TVChart] Iniciando useEffect con marketData:", marketData);
+    if (!marketData) {
+      console.log("[TVChart] No hay marketData, abortando.");
+      return;
+    }
+    
+    // Check if marketData is an array (old format) or object (new format {ohlcv, markers})
+    const ohlcvList = Array.isArray(marketData) ? marketData : (marketData.ohlcv || []);
+    const markerList = Array.isArray(marketData) ? [] : (marketData.markers || []);
+    
+    console.log("[TVChart] Extraido ohlcvList len:", ohlcvList.length, "markerList len:", markerList.length);
 
-    // Dark Mode Glassmorphism Theme Options
-    const chartOptions = {
-      layout: {
-        background: { type: 'solid', color: 'transparent' },
-        textColor: '#A0AEC0',
-      },
-      grid: {
-        vertLines: { color: 'rgba(255, 255, 255, 0.05)' },
-        horzLines: { color: 'rgba(255, 255, 255, 0.05)' },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: { color: 'rgba(160, 174, 192, 0.5)', width: 1, style: 1 },
-        horzLine: { color: 'rgba(160, 174, 192, 0.5)', width: 1, style: 1 },
-      },
-      timeScale: {
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      rightPriceScale: {
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-      },
-      handleScroll: {
-        mouseWheel: true,
-        pressedMouseMove: true,
-      },
-      handleScale: {
-        axisPressedMouseMove: true,
-        mouseWheel: true,
-        pinch: true,
-      },
-    };
+    if (ohlcvList.length === 0) {
+      console.log("[TVChart] ohlcvList está vacío, abortando.");
+      return;
+    }
 
-    // 1. Create Main Chart (Candles + EMAs)
-    const mainChart = createChart(mainChartContainerRef.current, {
-      ...chartOptions,
-      height: 350,
-      timeScale: { ...chartOptions.timeScale, visible: false },
-    });
-    mainChartRef.current = mainChart;
+    let mainChart, rsiChart, macdChart, resizeObserver;
 
-    const candleSeries = mainChart.addCandlestickSeries({
-      upColor: '#10b981',
-      downColor: '#ef4444',
-      borderDownColor: '#ef4444',
-      borderUpColor: '#10b981',
-      wickDownColor: '#ef4444',
-      wickUpColor: '#10b981',
-    });
+    try {
+      console.log("[TVChart] Creando opciones de gráficos...");
+      // Dark Mode Glassmorphism Theme Options
+      const chartOptions = {
+        layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#A0AEC0' },
+        grid: { vertLines: { color: 'rgba(255, 255, 255, 0.05)' }, horzLines: { color: 'rgba(255, 255, 255, 0.05)' } },
+        crosshair: { mode: CrosshairMode.Normal, vertLine: { color: 'rgba(160, 174, 192, 0.5)', width: 1, style: 1 }, horzLine: { color: 'rgba(160, 174, 192, 0.5)', width: 1, style: 1 } },
+        timeScale: { borderColor: 'rgba(255, 255, 255, 0.1)', timeVisible: true, secondsVisible: false },
+        rightPriceScale: { borderColor: 'rgba(255, 255, 255, 0.1)' },
+      };
 
-    const ema9Series = mainChart.addLineSeries({
-      color: '#3b82f6', // blue
-      lineWidth: 1.5,
-      title: 'EMA 9',
-    });
+      console.log("[TVChart] Inicializando mainChart...");
+      mainChart = createChart(mainChartContainerRef.current, { ...chartOptions, height: 350, timeScale: { ...chartOptions.timeScale, visible: false } });
+      const candleSeries = mainChart.addSeries(CandlestickSeries, { upColor: '#10b981', downColor: '#ef4444', borderDownColor: '#ef4444', borderUpColor: '#10b981', wickDownColor: '#ef4444', wickUpColor: '#10b981' });
+      const ema9Series = mainChart.addSeries(LineSeries, { color: '#3b82f6', lineWidth: 1.5, title: 'EMA 9' });
+      const ema21Series = mainChart.addSeries(LineSeries, { color: '#f59e0b', lineWidth: 1.5, title: 'EMA 21' });
 
-    const ema21Series = mainChart.addLineSeries({
-      color: '#f59e0b', // orange
-      lineWidth: 1.5,
-      title: 'EMA 21',
-    });
+      console.log("[TVChart] Inicializando rsiChart...");
+      rsiChart = createChart(rsiChartContainerRef.current, { ...chartOptions, height: 150, timeScale: { ...chartOptions.timeScale, visible: false } });
+      const rsiSeries = rsiChart.addSeries(LineSeries, { color: '#a855f7', lineWidth: 1.5, title: 'RSI 14' });
+      rsiSeries.createPriceLine({ price: 70, color: 'rgba(239, 68, 68, 0.5)', lineWidth: 1, lineStyle: 2, title: 'OB' });
+      rsiSeries.createPriceLine({ price: 30, color: 'rgba(16, 185, 129, 0.5)', lineWidth: 1, lineStyle: 2, title: 'OS' });
 
-    // 2. Create RSI Chart
-    const rsiChart = createChart(rsiChartContainerRef.current, {
-      ...chartOptions,
-      height: 150,
-      timeScale: { ...chartOptions.timeScale, visible: false }, 
-    });
-    rsiChartRef.current = rsiChart;
+      console.log("[TVChart] Inicializando macdChart...");
+      macdChart = createChart(macdChartContainerRef.current, { ...chartOptions, height: 150, timeScale: { ...chartOptions.timeScale, visible: true } });
+      const macdSeries = macdChart.addSeries(LineSeries, { color: '#3b82f6', lineWidth: 1.5, title: 'MACD' });
+      const macdSignalSeries = macdChart.addSeries(LineSeries, { color: '#f59e0b', lineWidth: 1.5, title: 'Signal' });
+      const macdHistSeries = macdChart.addSeries(HistogramSeries, { color: '#22c55e', priceFormat: { type: 'volume' }, priceScaleId: '' });
 
-    const rsiSeries = rsiChart.addLineSeries({
-      color: '#a855f7', // purple
-      lineWidth: 1.5,
-      title: 'RSI 14',
-    });
+      console.log("[TVChart] Parseando datos...");
+      const cData = []; const ema9Data = []; const ema21Data = []; const rsiData = []; const macdData = []; const macdSignalData = []; const macdHistData = [];
+      const seenChartTimes = new Set();
 
-    rsiSeries.createPriceLine({
-      price: 70,
-      color: 'rgba(239, 68, 68, 0.5)',
-      lineWidth: 1,
-      lineStyle: 2,
-      title: 'OB',
-    });
-    rsiSeries.createPriceLine({
-      price: 30,
-      color: 'rgba(16, 185, 129, 0.5)',
-      lineWidth: 1,
-      lineStyle: 2,
-      title: 'OS',
-    });
-
-    // 3. Create MACD Chart
-    const macdChart = createChart(macdChartContainerRef.current, {
-      ...chartOptions,
-      height: 150,
-      timeScale: { ...chartOptions.timeScale, visible: true }, // Show time axis on bottom chart
-    });
-    macdChartRef.current = macdChart;
-
-    const macdSeries = macdChart.addLineSeries({
-      color: '#3b82f6',
-      lineWidth: 1.5,
-      title: 'MACD',
-    });
-
-    const macdSignalSeries = macdChart.addLineSeries({
-      color: '#f59e0b',
-      lineWidth: 1.5,
-      title: 'Signal',
-    });
-
-    const macdHistSeries = macdChart.addHistogramSeries({
-      color: '#22c55e',
-      priceFormat: { type: 'volume' },
-      priceScaleId: '', // Overlay
-    });
-
-    // Parse Data
-    const cData = [];
-    const ema9Data = [];
-    const ema21Data = [];
-    const rsiData = [];
-    const macdData = [];
-    const macdSignalData = [];
-    const macdHistData = [];
-
-    marketData.forEach(d => {
-      if (!d.time || d.open === null) return;
-      
-      const t = d.time; 
-      
-      cData.push({ time: t, open: d.open, high: d.high, low: d.low, close: d.close });
-      
-      if (d.EMA_9 !== null && d.EMA_9 !== undefined) ema9Data.push({ time: t, value: d.EMA_9 });
-      if (d.EMA_21 !== null && d.EMA_21 !== undefined) ema21Data.push({ time: t, value: d.EMA_21 });
-      if (d.RSI_14 !== null && d.RSI_14 !== undefined) rsiData.push({ time: t, value: d.RSI_14 });
-      if (d.MACD !== null && d.MACD !== undefined) macdData.push({ time: t, value: d.MACD });
-      if (d.MACD_Signal !== null && d.MACD_Signal !== undefined) macdSignalData.push({ time: t, value: d.MACD_Signal });
-      
-      if (d.MACD_Hist !== null && d.MACD_Hist !== undefined) {
-        macdHistData.push({
-          time: t,
-          value: d.MACD_Hist,
-          color: d.MACD_Hist > 0 ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)',
-        });
-      }
-    });
-
-    // Set Data
-    candleSeries.setData(cData);
-    ema9Series.setData(ema9Data);
-    ema21Series.setData(ema21Data);
-    rsiSeries.setData(rsiData);
-    macdSeries.setData(macdData);
-    macdSignalSeries.setData(macdSignalData);
-    macdHistSeries.setData(macdHistData);
-
-    // Sync Time Scales (Zoom / Pan)
-    function syncTimeScales(sourceChart, targetChart1, targetChart2) {
-      sourceChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-        if (range) {
-          targetChart1.timeScale().setVisibleLogicalRange(range);
-          targetChart2.timeScale().setVisibleLogicalRange(range);
+      ohlcvList.forEach(d => {
+        if (!d.time || d.open === null) return;
+        const t = d.time; 
+        if (seenChartTimes.has(t)) return;
+        seenChartTimes.add(t);
+        
+        cData.push({ time: t, open: d.open, high: d.high, low: d.low, close: d.close });
+        if (d.EMA_9 != null) ema9Data.push({ time: t, value: d.EMA_9 });
+        if (d.EMA_21 != null) ema21Data.push({ time: t, value: d.EMA_21 });
+        if (d.RSI_14 != null) rsiData.push({ time: t, value: d.RSI_14 });
+        if (d.MACD != null) macdData.push({ time: t, value: d.MACD });
+        if (d.MACD_Signal != null) macdSignalData.push({ time: t, value: d.MACD_Signal });
+        if (d.MACD_Hist != null) {
+          macdHistData.push({ time: t, value: d.MACD_Hist, color: d.MACD_Hist > 0 ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)' });
         }
       });
-    }
 
-    syncTimeScales(mainChart, rsiChart, macdChart);
-    syncTimeScales(rsiChart, mainChart, macdChart);
-    syncTimeScales(macdChart, mainChart, rsiChart);
-
-    // Sync Crosshair (basic time sync)
-    function syncCrosshair(sourceChart, ...targetCharts) {
-        sourceChart.subscribeCrosshairMove(param => {
-            if (!param.point) {
-                targetCharts.forEach(chart => chart.clearCrosshairPosition());
-                return;
+      console.log("[TVChart] Asignando datos a las series. cData len:", cData.length);
+      candleSeries.setData(cData);
+      ema9Series.setData(ema9Data);
+      ema21Series.setData(ema21Data);
+      rsiSeries.setData(rsiData);
+      macdSeries.setData(macdData);
+      macdSignalSeries.setData(macdSignalData);
+      macdHistSeries.setData(macdHistData);
+      
+      console.log("[TVChart] Procesando marcadores...");
+      if (markerList.length > 0) {
+        const uniqueMarkers = [];
+        const seenTimes = new Set();
+        
+        // Lightweight charts REQUIRES the marker time to exactly match a candle time.
+        // Since trades happen at random seconds, we snap them to the closest previous candle.
+        const cTimes = cData.map(c => c.time);
+        
+        markerList.forEach(m => {
+          let snappedTime = m.time;
+          // Find closest preceding candle
+          for (let i = cTimes.length - 1; i >= 0; i--) {
+            if (cTimes[i] <= m.time) {
+              snappedTime = cTimes[i];
+              break;
             }
-            
-            // To properly sync crosshair we need to sync logical time
-            const logical = sourceChart.timeScale().coordinateToLogical(param.point.x);
-            if (logical !== null) {
-                targetCharts.forEach(chart => {
-                    const coord = chart.timeScale().logicalToCoordinate(logical);
-                    if (coord !== null) {
-                        // In v4+ we can't easily fake the crosshair without the specific series data.
-                        // We will rely on time-scale sync which provides a great experience anyway.
-                    }
-                });
-            }
+          }
+          
+          // Only add one marker per candle to prevent library crashes
+          if (!seenTimes.has(snappedTime)) {
+            seenTimes.add(snappedTime);
+            uniqueMarkers.push({ ...m, time: snappedTime });
+          }
         });
-    }
-    
-    // Fit Content initially
-    mainChart.timeScale().fitContent();
-
-    // Resize Observer
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        const { width } = entry.contentRect;
-        mainChart.applyOptions({ width });
-        rsiChart.applyOptions({ width });
-        macdChart.applyOptions({ width });
+        
+        // They must also be strictly sorted by time
+        uniqueMarkers.sort((a, b) => a.time - b.time);
+        
+        console.log("[TVChart] Añadiendo marcadores únicos:", uniqueMarkers.length);
+        candleSeries.setMarkers(uniqueMarkers);
       }
-    });
-    
-    if (mainChartContainerRef.current) {
-        resizeObserver.observe(mainChartContainerRef.current.parentElement);
+
+      console.log("[TVChart] Sincronizando gráficos...");
+      const syncTimeScales = (s, t1, t2) => {
+        s.timeScale().subscribeVisibleLogicalRangeChange((r) => { if (r) { t1.timeScale().setVisibleLogicalRange(r); t2.timeScale().setVisibleLogicalRange(r); } });
+      };
+      syncTimeScales(mainChart, rsiChart, macdChart);
+      syncTimeScales(rsiChart, mainChart, macdChart);
+      syncTimeScales(macdChart, mainChart, rsiChart);
+      
+      mainChart.timeScale().fitContent();
+
+      console.log("[TVChart] Creando ResizeObserver...");
+      resizeObserver = new ResizeObserver((entries) => {
+        for (let entry of entries) {
+          const { width } = entry.contentRect;
+          mainChart.applyOptions({ width });
+          rsiChart.applyOptions({ width });
+          macdChart.applyOptions({ width });
+        }
+      });
+      if (mainChartContainerRef.current) resizeObserver.observe(mainChartContainerRef.current.parentElement);
+
+      console.log("[TVChart] Inicialización completada con éxito.");
+    } catch (error) {
+      console.error("[TVChart] CRASH FATAL DENTRO DE USEEFFECT:", error);
     }
 
     return () => {
-      resizeObserver.disconnect();
-      mainChart.remove();
-      rsiChart.remove();
-      macdChart.remove();
+      console.log("[TVChart] Ejecutando cleanup...");
+      if (resizeObserver) resizeObserver.disconnect();
+      if (mainChart) mainChart.remove();
+      if (rsiChart) rsiChart.remove();
+      if (macdChart) macdChart.remove();
     };
   }, [marketData]);
 

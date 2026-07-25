@@ -275,6 +275,9 @@ async def analyze_trades(df, target_symbol=None):
                         'text': f"Entry {trade['side']}"
                     })
                 
+                # Lightweight Charts REQUIRES markers to be strictly sorted by time
+                markers = sorted(markers, key=lambda x: x['time'])
+                
                 total_symbol_trades = len(symbol_trades)
                 
                 if total_symbol_trades > 0:
