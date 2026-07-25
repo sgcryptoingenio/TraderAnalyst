@@ -78,6 +78,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
+                email TEXT,
                 password_hash TEXT NOT NULL,
                 role TEXT DEFAULT 'user',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -144,6 +145,15 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_trades_session_id ON trades(session_id)")
         
         conn.commit()
+        
+        # Migración automática: Intentar agregar la columna email si no existe
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN email TEXT")
+            conn.commit()
+        except sqlite3.OperationalError:
+            # La columna probablemente ya existe
+            pass
+            
         conn.close()
 
 def get_db_connection():

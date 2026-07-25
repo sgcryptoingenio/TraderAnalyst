@@ -1,7 +1,34 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from market_data import fetch_ohlcv, compute_indicators, get_historical_price
+from market_data import fetch_ohlcv, compute_indicators, get_historical_price, fetch_historical_data_range
+
+def get_dynamic_timeframe(median_duration_secs, start_time, end_time):
+    """
+    Decide la temporalidad óptima basada en el estilo de trading y previene timeouts 
+    limitando la precisión si el rango de fechas es muy extenso.
+    """
+    if pd.isna(start_time) or pd.isna(end_time):
+        return '1h'
+        
+    total_days = (end_time - start_time).total_seconds() / 86400.0
+    
+    ideal_tf = '1h'
+    if median_duration_secs > 0:
+        if median_duration_secs <= 7200: # <= 2 horas (Scalper)
+            ideal_tf = '5m'
+        elif median_duration_secs <= 259200: # <= 3 días (Day Trader)
+            ideal_tf = '15m'
+            
+    # Protección anti-timeout (Limitar según días totales)
+    if ideal_tf == '5m' and total_days > 40:
+        ideal_tf = '15m'
+    if ideal_tf == '15m' and total_days > 120:
+        ideal_tf = '1h'
+    if total_days > 500:
+        ideal_tf = '4h'
+        
+    return ideal_tf
 
 async def analyze_trades(df, target_symbol=None):
     """
@@ -14,6 +41,26 @@ async def analyze_trades(df, target_symbol=None):
     
     if target_symbol and target_symbol in available_symbols:
         df = df[df['symbol'] == target_symbol].copy()
+        
+    # Convert dates early
+    if 'entry_time' in df.columns:
+        df['entry_time'] = pd.to_datetime(df['entry_time'], errors='coerce')
+    if 'exit_time' in df.columns:
+        df['exit_time'] = pd.to_datetime(df['exit_time'], errors='coerce')
+        
+    # Calculate median duration early to dictate timeframe
+    median_duration_secs = 0
+    median_duration = pd.Timedelta(seconds=0)
+    avg_duration_str = "N/A"
+    
+    if df['entry_time'].notna().any() and df['exit_time'].notna().any():
+        df['duration'] = df['exit_time'] - df['entry_time']
+        median_duration = df['duration'].median()
+        if pd.notna(median_duration):
+            median_duration_secs = median_duration.total_seconds()
+            
+        avg_duration = df['duration'].mean()
+        avg_duration_str = str(avg_duration).split('.')[0] if pd.notna(avg_duration) else "N/A"
         
     # Recalculate true PNL % (Vectorized)
     entry = df['entry_price']
@@ -38,27 +85,41 @@ async def analyze_trades(df, target_symbol=None):
     df['true_pnl_pct'] = np.where(is_usdt, price_diff_pct * 100.0, coin_diff_pct * 100.0)
     df['true_pnl_pct'] = df['true_pnl_pct'].fillna(0.0)
     
-    # Fetch historical prices for COIN-M USD conversion
-    pnl_usd_list = []
-    price_cache = {}
-    for _, row in df.iterrows():
-        pnl = row['reported_pnl']
-        if row['contract_type'] == 'COIN-M' and pd.notna(row['exit_time']):
-            cache_key = f"{row['symbol']}_{row['exit_time']}"
-            if cache_key in price_cache:
-                price_usd = price_cache[cache_key]
-            else:
-                price_usd = get_historical_price(row['symbol'], row['exit_time'])
-                price_cache[cache_key] = price_usd
+    # Fetch historical prices for COIN-M USD conversion (Bulk Vectorized)
+    df['pnl_usd'] = df['reported_pnl'] # Predeterminado para USDT-M
+    
+    coin_m_df = df[df['contract_type'] == 'COIN-M'].copy()
+    if not coin_m_df.empty and coin_m_df['exit_time'].notna().any():
+        symbols = coin_m_df['symbol'].unique()
+        
+        for sym in symbols:
+            sym_trades = coin_m_df[(coin_m_df['symbol'] == sym) & coin_m_df['exit_time'].notna()].copy()
+            if sym_trades.empty: continue
                 
-            if price_usd:
-                pnl_usd_list.append(pnl * price_usd)
-            else:
-                pnl_usd_list.append(pnl) # Fallback
-        else:
-            pnl_usd_list.append(pnl)
+            start_t = sym_trades['exit_time'].min() - pd.Timedelta(hours=1)
+            end_t = sym_trades['exit_time'].max() + pd.Timedelta(hours=1)
             
-    df['pnl_usd'] = pnl_usd_list
+            # Use dynamic timeframe (though for USD conversion 1h is usually fine, we respect the limits)
+            tf = get_dynamic_timeframe(median_duration_secs, start_t, end_t)
+            # Para conversiones de dinero no necesitamos 5m si es muy largo, usamos el tf seguro
+            
+            market_df = fetch_historical_data_range(sym, start_t, end_t, timeframe=tf)
+            
+            if not market_df.empty:
+                sym_trades = sym_trades.sort_values('exit_time')
+                market_df = market_df.sort_values('timestamp')
+                
+                merged = pd.merge_asof(
+                    sym_trades,
+                    market_df[['timestamp', 'close']],
+                    left_on='exit_time',
+                    right_on='timestamp',
+                    direction='nearest'
+                )
+                
+                merged['calc_pnl_usd'] = merged['reported_pnl'] * merged['close']
+                merged.index = sym_trades.index
+                df.loc[merged.index, 'pnl_usd'] = merged['calc_pnl_usd'].fillna(merged['reported_pnl'])
     
     # Sort chronologically for cumulative calculations
     if df['exit_time'].notna().any():
@@ -97,18 +158,7 @@ async def analyze_trades(df, target_symbol=None):
     avg_loss_amt = losses['pnl_usd'].mean() if not losses.empty else 0
     
     # Trade duration
-    median_duration = pd.Timedelta(seconds=0)
-    if df['entry_time'].notna().any() and df['exit_time'].notna().any():
-        df['entry_time'] = pd.to_datetime(df['entry_time'], errors='coerce')
-        df['exit_time'] = pd.to_datetime(df['exit_time'], errors='coerce')
-        df['duration'] = df['exit_time'] - df['entry_time']
-        
-        # Calcular mediana para evadir outliers extremos
-        median_duration = df['duration'].median()
-        avg_duration = df['duration'].mean()
-        avg_duration_str = str(avg_duration).split('.')[0] if pd.notna(avg_duration) else "N/A"
-    else:
-        avg_duration_str = "N/A"
+    # (Calculated at the top now)
         
     # Trading Style Profiler and Advice
     trading_style = "Desconocido"
@@ -184,9 +234,13 @@ async def analyze_trades(df, target_symbol=None):
     if df['entry_time'].notna().any():
         try:
             symbol_to_fetch = df['symbol'].value_counts().idxmax()
-            start_time = df['entry_time'].min()
+            start_time = df['entry_time'].min() - pd.Timedelta(days=2) # Dar un poco de margen para EMAs
+            end_time = df['exit_time'].max() if df['exit_time'].notna().any() else datetime.now()
             
-            market_df = fetch_ohlcv(symbol_to_fetch, timeframe='1h', limit=500, since=start_time)
+            quant_tf = get_dynamic_timeframe(median_duration_secs, start_time, end_time)
+            
+            # Uso de la función masiva con timeframe dinámico (5m, 15m, 1h)
+            market_df = fetch_historical_data_range(symbol_to_fetch, start_time, end_time, timeframe=quant_tf)
             
             if not market_df.empty:
                 market_df = compute_indicators(market_df)

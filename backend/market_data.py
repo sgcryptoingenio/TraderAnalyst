@@ -38,6 +38,57 @@ def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
         print(f"Error fetching data: {e}")
         return pd.DataFrame()
 
+def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
+    """
+    Descarga todo el rango histórico en bloques para evitar hacer peticiones individuales.
+    """
+    try:
+        since_ms = int(start_time.timestamp() * 1000)
+        end_ms = int(end_time.timestamp() * 1000)
+        
+        clean_symbol = symbol.replace('USD', 'USDT')
+        if '/' not in clean_symbol:
+            clean_symbol = clean_symbol.replace('USDT', '/USDT')
+            
+        all_ohlcv = []
+        
+        # Hacemos iteraciones seguras (máximo 10 para evitar timeouts si el rango es bestial)
+        for _ in range(10):
+            try:
+                ohlcv = exchange.fetch_ohlcv(clean_symbol, timeframe, since=since_ms, limit=1000)
+            except:
+                try:
+                    ohlcv = exchange.fetch_ohlcv('BTC/USDT', timeframe, since=since_ms, limit=1000)
+                except:
+                    break
+                    
+            if not ohlcv or len(ohlcv) == 0:
+                break
+                
+            all_ohlcv.extend(ohlcv)
+            
+            # El último timestamp devuelto
+            last_ts = ohlcv[-1][0]
+            if last_ts >= end_ms:
+                break
+                
+            # Avanzamos el puntero (sumamos 1 milisegundo para no repetir vela)
+            since_ms = last_ts + 1
+            
+        if not all_ohlcv:
+            return pd.DataFrame()
+            
+        df = pd.DataFrame(all_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms').astype('datetime64[ns]')
+        
+        # Limpiar duplicados por si acaso
+        df = df.drop_duplicates(subset=['timestamp']).reset_index(drop=True)
+        return df
+        
+    except Exception as e:
+        print(f"Error fetching data range: {e}")
+        return pd.DataFrame()
+
 def get_historical_price(symbol, timestamp):
     """
     Obtiene el precio de cierre de la vela de 1m más cercana (hacia atrás) al timestamp dado.

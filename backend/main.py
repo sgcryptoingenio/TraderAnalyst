@@ -46,9 +46,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from typing import Optional
+
 class UserAuth(BaseModel):
     username: str
     password: str
+    email: Optional[str] = None
 
 class ChangePasswordRequest(BaseModel):
     old_password: str
@@ -79,7 +82,7 @@ def register(user: UserAuth, db = Depends(get_db)):
     
     role = 'admin' if user.username.lower() in ['admin', 'profesor'] else 'user'
     hashed_password = get_password_hash(user.password)
-    cursor.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", (user.username, hashed_password, role))
+    cursor.execute("INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, ?, ?)", (user.username, hashed_password, role, user.email))
     conn.commit()
     
     return {"success": True, "message": "Usuario registrado exitosamente"}
