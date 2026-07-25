@@ -85,8 +85,8 @@ def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
         
         all_ohlcv = []
         
-        # Hacemos iteraciones seguras (máximo 10 para evitar timeouts si el rango es bestial)
-        for _ in range(10):
+        # Hacemos iteraciones seguras (máximo 30 para evitar timeouts si el rango es bestial pero permitir 300 días en 15m)
+        for _ in range(30):
             ohlcv = None
             for ex in exchanges_to_try:
                 try:

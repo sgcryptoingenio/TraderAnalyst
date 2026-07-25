@@ -489,16 +489,34 @@ async def analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: in
         raise HTTPException(status_code=403, detail="Acceso denegado")
 
     file_path = report['file_path']
-    if not file_path or not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="El archivo original ya no está disponible en el servidor")
-
+    
     try:
         cursor = db.cursor()
         cursor.execute("SELECT value FROM settings WHERE key = 'mentorship_link'")
         row = cursor.fetchone()
         mentorship_link = row['value'] if row else ""
         
-        df = await run_in_threadpool(ingest_file, file_path)
+        # If the file exists, we can parse it directly
+        if file_path and os.path.exists(file_path):
+            df = await run_in_threadpool(ingest_file, file_path)
+        else:
+            # Fallback to database
+            query = """
+                SELECT t.* 
+                FROM trades t
+                JOIN upload_sessions s ON t.session_id = s.id
+                WHERE s.user_id = ? AND s.filename = ?
+                ORDER BY s.id DESC
+            """
+            df = pd.read_sql_query(query, conn, params=(user_id, report['filename']))
+            if df.empty:
+                raise HTTPException(status_code=404, detail="El archivo original ya no está disponible y no se encontraron operaciones en la base de datos.")
+            
+            if 'entry_time' in df.columns:
+                df['entry_time'] = pd.to_datetime(df['entry_time'])
+            if 'exit_time' in df.columns:
+                df['exit_time'] = pd.to_datetime(df['exit_time'])
+        
         metrics = await analyze_trades(df, req.target_symbol)
 
         return {
