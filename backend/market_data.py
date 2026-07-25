@@ -58,7 +58,7 @@ def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
             return pd.DataFrame()
             
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms').astype('datetime64[ns]')
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True).dt.tz_localize(None)
         return df
     except Exception as e:
         print(f"Error fatal fetching data: {e}")
@@ -122,7 +122,7 @@ def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
             return pd.DataFrame()
             
         df = pd.DataFrame(all_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms').astype('datetime64[ns]')
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True).dt.tz_localize(None)
         
         # Limpiar duplicados por si acaso
         df = df.drop_duplicates(subset=['timestamp']).reset_index(drop=True)

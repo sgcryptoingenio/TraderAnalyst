@@ -109,8 +109,8 @@ async def analyze_trades(df, target_symbol=None):
                 sym_trades = sym_trades.sort_values('exit_time')
                 market_df = market_df.sort_values('timestamp')
                 
-                sym_trades['exit_time'] = pd.to_datetime(sym_trades['exit_time']).astype('datetime64[ns]')
-                market_df['timestamp'] = pd.to_datetime(market_df['timestamp']).astype('datetime64[ns]')
+                sym_trades['exit_time'] = pd.to_datetime(sym_trades['exit_time'], utc=True).dt.tz_localize(None)
+                market_df['timestamp'] = pd.to_datetime(market_df['timestamp'], utc=True).dt.tz_localize(None)
                 
                 merged = pd.merge_asof(
                     sym_trades,
