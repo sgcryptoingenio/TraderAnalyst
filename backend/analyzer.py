@@ -282,6 +282,7 @@ async def analyze_trades(df, target_symbol=None):
                 
                 # Markers (we can format this directly or with a quick iteration since it's just for UI)
                 for _, trade in symbol_trades.iterrows():
+                    # Marcador de Entrada
                     markers.append({
                         'time': int(trade['entry_time'].timestamp()),
                         'position': 'belowBar' if trade['side'] == 'Long' else 'aboveBar',
@@ -289,6 +290,19 @@ async def analyze_trades(df, target_symbol=None):
                         'shape': 'arrowUp' if trade['side'] == 'Long' else 'arrowDown',
                         'text': f"Entry {trade['side']}"
                     })
+                    
+                    # Marcador de Salida (Win/Loss)
+                    if pd.notna(trade.get('exit_time')):
+                        is_win = float(trade.get('reported_pnl', 0)) > 0
+                        pnl_val = float(trade.get('reported_pnl', 0))
+                        
+                        markers.append({
+                            'time': int(trade['exit_time'].timestamp()),
+                            'position': 'aboveBar' if trade['side'] == 'Long' else 'belowBar',
+                            'color': '#4caf50' if is_win else '#f44336',
+                            'shape': 'arrowDown' if trade['side'] == 'Long' else 'arrowUp',
+                            'text': f"WIN (${pnl_val:.2f})" if is_win else f"LOSS (${pnl_val:.2f})"
+                        })
                 
                 # Lightweight Charts REQUIRES markers to be strictly sorted by time
                 markers = sorted(markers, key=lambda x: x['time'])
