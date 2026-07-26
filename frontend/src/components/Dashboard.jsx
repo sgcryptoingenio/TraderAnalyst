@@ -14,6 +14,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange }) => {
   const [marketDataLoading, setMarketDataLoading] = useState(false);
   const [marketDataError, setMarketDataError] = useState(null);
   const [brushStartIdx, setBrushStartIdx] = useState(0);
+  const [brushEndIdx, setBrushEndIdx] = useState(null);
   
   const brushTimeoutRef = useRef(null);
 
@@ -389,9 +390,12 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange }) => {
                 travellerWidth={8}
                 tickFormatter={() => ''}
                 style={{ marginTop: '10px' }}
+                startIndex={brushStartIdx}
+                endIndex={brushEndIdx !== null ? brushEndIdx : (metrics.equity_curve ? metrics.equity_curve.length - 1 : 0)}
                 onChange={(range) => {
                   if (range && metrics.equity_curve) {
                     setBrushStartIdx(range.startIndex);
+                    setBrushEndIdx(range.endIndex);
                     
                     if (onTimeRangeChange) {
                       if (brushTimeoutRef.current) {
