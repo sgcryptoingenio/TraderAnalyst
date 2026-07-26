@@ -18,6 +18,21 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange }) => {
   
   const brushTimeoutRef = useRef(null);
 
+  // Derive display data to force Recharts to update when brush changes
+  // and pre-calculate the normalized PNL so Tooltips work flawlessly.
+  const displayEquityCurve = useMemo(() => {
+    if (!metrics || !metrics.equity_curve) return [];
+    
+    const startAmt = metrics.equity_curve[brushStartIdx] 
+      ? metrics.equity_curve[brushStartIdx].cumulative_pnl_amt 
+      : 0;
+      
+    return metrics.equity_curve.map(point => ({
+      ...point,
+      normalized_pnl_amt: point.cumulative_pnl_amt - startAmt
+    }));
+  }, [metrics?.equity_curve, brushStartIdx]);
+
   useEffect(() => {
     if (active_symbol) {
       if (metrics && metrics.tv_data) {
@@ -352,7 +367,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange }) => {
             </div>
           </div>
           <ResponsiveContainer width="100%" height="90%">
-            <AreaChart data={metrics.equity_curve} margin={{ top: 10, right: 30, left: 0, bottom: 30 }}>
+            <AreaChart data={displayEquityCurve} margin={{ top: 10, right: 30, left: 0, bottom: 30 }}>
               <defs>
                 <linearGradient id="pnlGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
@@ -369,12 +384,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange }) => {
               />
               <Area
                 type="monotone"
-                dataKey={(point) => {
-                  const startAmt = (metrics.equity_curve && metrics.equity_curve[brushStartIdx]) 
-                    ? metrics.equity_curve[brushStartIdx].cumulative_pnl_amt 
-                    : 0;
-                  return point.cumulative_pnl_amt - startAmt;
-                }}
+                dataKey="normalized_pnl_amt"
                 name="PNL USD (Zona)"
                 stroke="#10b981"
                 strokeWidth={2}
