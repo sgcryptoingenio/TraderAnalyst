@@ -13,6 +13,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange }) => {
   const [marketData, setMarketData] = useState(null);
   const [marketDataLoading, setMarketDataLoading] = useState(false);
   const [marketDataError, setMarketDataError] = useState(null);
+  const [brushStartIdx, setBrushStartIdx] = useState(0);
   
   const brushTimeoutRef = useRef(null);
 
@@ -367,7 +368,13 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange }) => {
               />
               <Area
                 type="monotone"
-                dataKey="cumulative_pnl_amt"
+                dataKey={(point) => {
+                  const startAmt = (metrics.equity_curve && metrics.equity_curve[brushStartIdx]) 
+                    ? metrics.equity_curve[brushStartIdx].cumulative_pnl_amt 
+                    : 0;
+                  return point.cumulative_pnl_amt - startAmt;
+                }}
+                name="PNL USD (Zona)"
                 stroke="#10b981"
                 strokeWidth={2}
                 fill="url(#pnlGradient)"
@@ -383,17 +390,21 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange }) => {
                 tickFormatter={() => ''}
                 style={{ marginTop: '10px' }}
                 onChange={(range) => {
-                  if (range && metrics.equity_curve && onTimeRangeChange) {
-                    if (brushTimeoutRef.current) {
-                      clearTimeout(brushTimeoutRef.current);
-                    }
-                    brushTimeoutRef.current = setTimeout(() => {
-                      const start = metrics.equity_curve[range.startIndex];
-                      const end = metrics.equity_curve[range.endIndex];
-                      if (start && end) {
-                        onTimeRangeChange(start.exit_time, end.exit_time);
+                  if (range && metrics.equity_curve) {
+                    setBrushStartIdx(range.startIndex);
+                    
+                    if (onTimeRangeChange) {
+                      if (brushTimeoutRef.current) {
+                        clearTimeout(brushTimeoutRef.current);
                       }
-                    }, 800); // 800ms debounce
+                      brushTimeoutRef.current = setTimeout(() => {
+                        const start = metrics.equity_curve[range.startIndex];
+                        const end = metrics.equity_curve[range.endIndex];
+                        if (start && end) {
+                          onTimeRangeChange(start.exit_time, end.exit_time);
+                        }
+                      }, 800); // 800ms debounce
+                    }
                   }
                 }}
               />
