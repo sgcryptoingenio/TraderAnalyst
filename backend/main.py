@@ -213,9 +213,10 @@ async def get_analysis(
         raise HTTPException(status_code=404, detail="No se encontraron operaciones para analizar. Sube un archivo primero.")
         
     if 'entry_time' in df.columns:
-        df['entry_time'] = pd.to_datetime(df['entry_time'])
+        df['entry_time'] = pd.to_datetime(df['entry_time'], errors='coerce')
     if 'exit_time' in df.columns:
-        df['exit_time'] = pd.to_datetime(df['exit_time'])
+        df['exit_time'] = pd.to_datetime(df['exit_time'], errors='coerce')
+        df = df.dropna(subset=['exit_time'])
         
     metrics = await analyze_trades(df, target_symbol)
     
@@ -515,9 +516,10 @@ async def analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: in
                 raise HTTPException(status_code=404, detail="El archivo original ya no está disponible y no se encontraron operaciones en la base de datos.")
             
             if 'entry_time' in df.columns:
-                df['entry_time'] = pd.to_datetime(df['entry_time'])
+                df['entry_time'] = pd.to_datetime(df['entry_time'], errors='coerce')
             if 'exit_time' in df.columns:
-                df['exit_time'] = pd.to_datetime(df['exit_time'])
+                df['exit_time'] = pd.to_datetime(df['exit_time'], errors='coerce')
+                df = df.dropna(subset=['exit_time'])
                 
         # Filter by date range if provided
         if req.start_time:
