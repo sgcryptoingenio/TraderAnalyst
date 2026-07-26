@@ -161,11 +161,23 @@ function App() {
       }
 
       const result = await response.json();
-      if (!targetSymbol && result.report) {
-         setData(result.report);
-      } else {
-         setData(result);
-      }
+      
+      setData(prevData => {
+        let newData = (!targetSymbol && result.report) ? result.report : result;
+        
+        // Mantener la curva de ganancias global (y el gráfico de TV) si estamos aplicando un filtro temporal
+        if ((startTime || endTime) && prevData && prevData.metrics) {
+           if (prevData.metrics.equity_curve) {
+             newData.metrics.equity_curve = prevData.metrics.equity_curve;
+           }
+           if (prevData.metrics.tv_data) {
+             newData.metrics.tv_data = prevData.metrics.tv_data;
+           }
+        }
+        
+        return newData;
+      });
+      
       setView('dashboard');
     } catch (err) {
       setError(err.message);
