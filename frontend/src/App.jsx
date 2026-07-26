@@ -122,7 +122,7 @@ function App() {
     }
   };
 
-  const handleLoadSession = async (reportId, targetSymbol = null) => {
+  const handleLoadSession = async (reportId, targetSymbol = null, startTime = null, endTime = null) => {
     if (!reportId) return;
     setLoading(true);
     setError('');
@@ -130,14 +130,18 @@ function App() {
 
     try {
       let response;
-      if (targetSymbol) {
+      if (targetSymbol || startTime || endTime) {
         response = await fetch(`${API_BASE}/api/report/${reportId}/analyze`, {
           method: 'POST',
           headers: { 
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ target_symbol: targetSymbol })
+          body: JSON.stringify({ 
+            target_symbol: targetSymbol,
+            start_time: startTime,
+            end_time: endTime
+          })
         });
       } else {
         response = await fetch(`${API_BASE}/api/report/${reportId}`, {
@@ -262,6 +266,16 @@ function App() {
                 handleFile(selectedFile, symbol);
               }
             }} 
+            onTimeRangeChange={(start, end) => {
+              const sym = data.active_symbol || null;
+              if (currentSessionId) {
+                handleLoadSession(currentSessionId, sym, start, end);
+              } else {
+                // If there's no session id (just uploaded), time filtering is harder 
+                // unless we implement it in /api/analyze as well. For now it triggers full reload.
+                handleFile(selectedFile, sym);
+              }
+            }}
           />
         </ErrorBoundary>
       )}

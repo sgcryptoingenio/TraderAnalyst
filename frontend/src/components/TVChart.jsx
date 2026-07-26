@@ -128,7 +128,25 @@ const TVChart = ({ marketData }) => {
         uniqueMarkers.sort((a, b) => a.time - b.time);
         
         console.log("[TVChart] Añadiendo marcadores únicos:", uniqueMarkers.length, uniqueMarkers);
-        candleSeries.setMarkers(uniqueMarkers);
+        try {
+            candleSeries.setMarkers(uniqueMarkers);
+        } catch (markerErr) {
+            console.warn("[TVChart] Error al inyectar marcadores. Intentando limpieza extrema...", markerErr);
+            // Si falla, intentamos una limpieza más agresiva filtrando marcadores con tiempos idénticos que no se fusionaron bien
+            const ultraCleanMarkers = [];
+            const finalSeen = new Set();
+            for (const m of uniqueMarkers) {
+                if (!finalSeen.has(m.time)) {
+                    finalSeen.add(m.time);
+                    ultraCleanMarkers.push(m);
+                }
+            }
+            try {
+                candleSeries.setMarkers(ultraCleanMarkers);
+            } catch (e2) {
+                console.error("[TVChart] Fallo definitivo al inyectar marcadores:", e2);
+            }
+        }
       }
 
       console.log("[TVChart] Sincronizando gráficos...");

@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Brush } from 'recharts';
 import TVChart from './TVChart';
 import html2pdf from 'html2pdf.js';
 import API_BASE from '../api';
 
-const Dashboard = ({ data, onSymbolChange }) => {
+const Dashboard = ({ data, onSymbolChange, onTimeRangeChange }) => {
   const [mentorshipLink, setMentorshipLink] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   
@@ -13,6 +13,8 @@ const Dashboard = ({ data, onSymbolChange }) => {
   const [marketData, setMarketData] = useState(null);
   const [marketDataLoading, setMarketDataLoading] = useState(false);
   const [marketDataError, setMarketDataError] = useState(null);
+  
+  const brushTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (active_symbol) {
@@ -380,6 +382,20 @@ const Dashboard = ({ data, onSymbolChange }) => {
                 travellerWidth={8}
                 tickFormatter={() => ''}
                 style={{ marginTop: '10px' }}
+                onChange={(range) => {
+                  if (range && metrics.equity_curve && onTimeRangeChange) {
+                    if (brushTimeoutRef.current) {
+                      clearTimeout(brushTimeoutRef.current);
+                    }
+                    brushTimeoutRef.current = setTimeout(() => {
+                      const start = metrics.equity_curve[range.startIndex];
+                      const end = metrics.equity_curve[range.endIndex];
+                      if (start && end) {
+                        onTimeRangeChange(start.exit_time, end.exit_time);
+                      }
+                    }, 800); // 800ms debounce
+                  }
+                }}
               />
             </AreaChart>
           </ResponsiveContainer>

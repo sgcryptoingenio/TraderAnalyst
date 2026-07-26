@@ -470,7 +470,9 @@ def update_settings(settings: SettingsUpdate, admin_payload: dict = Depends(requ
     return {"success": True}
 
 class AnalyzeRequest(BaseModel):
-    target_symbol: str
+    target_symbol: Optional[str] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
 
 @app.post("/api/report/{report_id}/analyze")
 async def analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: int = Depends(get_current_user), db = Depends(get_db)):
@@ -516,6 +518,12 @@ async def analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: in
                 df['entry_time'] = pd.to_datetime(df['entry_time'])
             if 'exit_time' in df.columns:
                 df['exit_time'] = pd.to_datetime(df['exit_time'])
+                
+        # Filter by date range if provided
+        if req.start_time:
+            df = df[df['exit_time'] >= pd.to_datetime(req.start_time)]
+        if req.end_time:
+            df = df[df['exit_time'] <= pd.to_datetime(req.end_time)]
         
         metrics = await analyze_trades(df, req.target_symbol)
 
