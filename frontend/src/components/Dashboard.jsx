@@ -4,7 +4,7 @@ import TVChart from './TVChart';
 import html2pdf from 'html2pdf.js';
 import API_BASE from '../api';
 
-const Dashboard = ({ data, onSymbolChange, onTimeRangeChange }) => {
+const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange }) => {
   const [mentorshipLink, setMentorshipLink] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   
@@ -210,10 +210,32 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange }) => {
         )}
         <h2 style={{fontSize: '2rem', marginBottom: '24px'}}>Análisis de Historial: <span style={{color: 'var(--text-primary)', fontWeight: '800'}}>{exchange}</span></h2>
         {metrics.available_symbols && metrics.available_symbols.length > 0 && (
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
             <button onClick={() => onSymbolChange(null)} className="nav-btn" style={!active_symbol ? {background: 'var(--primary)', color: '#000', borderColor: 'var(--primary)', boxShadow: '0 0 15px var(--primary-glow)'} : {}}>🌍 Global</button>
             {metrics.available_symbols.map(s => (
               <button key={s} onClick={() => onSymbolChange(s)} className="nav-btn" style={active_symbol === s ? {background: 'var(--primary)', color: '#000', borderColor: 'var(--primary)', boxShadow: '0 0 15px var(--primary-glow)'} : {}}>{s}</button>
+            ))}
+          </div>
+        )}
+        
+        {active_symbol && onTimeframeChange && (
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{color: 'var(--text-secondary)', fontSize: '0.9rem', marginRight: '8px'}}>Temporalidad:</span>
+            {['1m', '5m', '15m', '1h', '4h', '1d'].map(tf => (
+              <button 
+                key={tf} 
+                onClick={() => onTimeframeChange(tf)} 
+                className="nav-btn" 
+                style={{
+                  padding: '6px 12px', 
+                  fontSize: '0.85rem',
+                  ...(metrics.analyzed_timeframe === tf 
+                    ? {background: 'var(--primary)', color: '#000', borderColor: 'var(--primary)'} 
+                    : {})
+                }}
+              >
+                {tf}
+              </button>
             ))}
           </div>
         )}

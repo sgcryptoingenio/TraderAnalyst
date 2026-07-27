@@ -4,6 +4,7 @@ import pandas as pd
 # Instancia global síncrona
 exchange = ccxt.binance({
     'enableRateLimit': True,
+    'timeout': 15000,
 })
 
 def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
@@ -26,9 +27,9 @@ def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
             
         exchanges_to_try = [
             exchange, # Binance (instancia global)
-            ccxt.bybit({'enableRateLimit': True}),
-            ccxt.okx({'enableRateLimit': True}),
-            ccxt.kucoin({'enableRateLimit': True})
+            ccxt.bybit({'enableRateLimit': True, 'timeout': 15000}),
+            ccxt.okx({'enableRateLimit': True, 'timeout': 15000}),
+            ccxt.kucoin({'enableRateLimit': True, 'timeout': 15000})
         ]
         
         ohlcv = None
@@ -78,9 +79,9 @@ def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
             
         exchanges_to_try = [
             exchange, # Binance (instancia global)
-            ccxt.bybit({'enableRateLimit': True}),
-            ccxt.okx({'enableRateLimit': True}),
-            ccxt.kucoin({'enableRateLimit': True})
+            ccxt.bybit({'enableRateLimit': True, 'timeout': 15000}),
+            ccxt.okx({'enableRateLimit': True, 'timeout': 15000}),
+            ccxt.kucoin({'enableRateLimit': True, 'timeout': 15000})
         ]
         
         all_ohlcv = []

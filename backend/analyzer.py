@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from market_data import fetch_ohlcv, compute_indicators, get_historical_price, fetch_historical_data_range
+from fastapi.concurrency import run_in_threadpool
 
 def get_dynamic_timeframe(median_duration_secs, start_time, end_time):
     """
@@ -30,7 +31,7 @@ def get_dynamic_timeframe(median_duration_secs, start_time, end_time):
         
     return ideal_tf
 
-async def analyze_trades(df, target_symbol=None):
+async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
     """
     Extraces behavioral metrics from a standardized trades DataFrame.
     """
@@ -103,7 +104,7 @@ async def analyze_trades(df, target_symbol=None):
             tf = get_dynamic_timeframe(median_duration_secs, start_t, end_t)
             # Para conversiones de dinero no necesitamos 5m si es muy largo, usamos el tf seguro
             
-            market_df = fetch_historical_data_range(sym, start_t, end_t, timeframe=tf)
+            market_df = await run_in_threadpool(fetch_historical_data_range, sym, start_t, end_t, timeframe=tf)
             
             if not market_df.empty:
                 sym_trades = sym_trades.sort_values('exit_time')
@@ -240,10 +241,14 @@ async def analyze_trades(df, target_symbol=None):
             start_time = df['entry_time'].min() - pd.Timedelta(days=2) # Dar un poco de margen para EMAs
             end_time = df['exit_time'].max() if df['exit_time'].notna().any() else datetime.now()
             
-            quant_tf = get_dynamic_timeframe(median_duration_secs, start_time, end_time)
+            dynamic_tf = get_dynamic_timeframe(median_duration_secs, start_time, end_time)
+            quant_tf = selected_timeframe if selected_timeframe else dynamic_tf
+            
+            if selected_timeframe and selected_timeframe != dynamic_tf:
+                advice.append(f"Diagnóstico de Temporalidad: Estás analizando tu estrategia en {selected_timeframe}, pero basándonos en la duración promedio de tus operaciones, tu marco temporal óptimo sugerido es {dynamic_tf}. Analizar en el marco incorrecto puede hacer que tus entradas parezcan desfasadas.")
             
             # Uso de la función masiva con timeframe dinámico (5m, 15m, 1h)
-            market_df = fetch_historical_data_range(symbol_to_fetch, start_time, end_time, timeframe=quant_tf)
+            market_df = await run_in_threadpool(fetch_historical_data_range, symbol_to_fetch, start_time, end_time, timeframe=quant_tf)
             
             if not market_df.empty:
                 market_df = compute_indicators(market_df)
@@ -441,5 +446,6 @@ async def analyze_trades(df, target_symbol=None):
             'markers': markers
         },
         'strategies': strategy_scores,
+        'analyzed_timeframe': quant_tf if 'quant_tf' in locals() else selected_timeframe or "1h",
         **raw_hits
     }

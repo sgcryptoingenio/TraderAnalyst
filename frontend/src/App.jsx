@@ -25,6 +25,13 @@ function App() {
   const [showLanding, setShowLanding] = useState(true);
   const [loadingText, setLoadingText] = useState('Analizando patrones matemáticos...');
   const inputRef = useRef(null);
+  
+  const [activeFilters, setActiveFilters] = useState({
+    symbol: null,
+    startTime: null,
+    endTime: null,
+    timeframe: null
+  });
 
   useEffect(() => {
     if (theme === 'light') {
@@ -82,17 +89,29 @@ function App() {
     setShowLanding(true);
   };
 
-  const handleFile = async (file, targetSymbol = null) => {
+  const handleFile = async (file, filtersToApply = {}) => {
     if (!file) return;
     setLoading(true);
     setError('');
     setSelectedFile(file);
     setCurrentSessionId(null);
 
+    const mergedFilters = { ...activeFilters, ...filtersToApply };
+    setActiveFilters(mergedFilters);
+
     const formData = new FormData();
     formData.append('file', file);
-    if (targetSymbol) {
-      formData.append('target_symbol', targetSymbol);
+    if (mergedFilters.symbol) {
+      formData.append('target_symbol', mergedFilters.symbol);
+    }
+    if (mergedFilters.timeframe) {
+      formData.append('timeframe', mergedFilters.timeframe);
+    }
+    if (mergedFilters.startTime) {
+      formData.append('start_time', mergedFilters.startTime);
+    }
+    if (mergedFilters.endTime) {
+      formData.append('end_time', mergedFilters.endTime);
     }
 
     try {
@@ -122,15 +141,18 @@ function App() {
     }
   };
 
-  const handleLoadSession = async (reportId, targetSymbol = null, startTime = null, endTime = null) => {
+  const handleLoadSession = async (reportId, filtersToApply = {}) => {
     if (!reportId) return;
     setLoading(true);
     setError('');
     setCurrentSessionId(reportId);
 
+    const mergedFilters = { ...activeFilters, ...filtersToApply };
+    setActiveFilters(mergedFilters);
+
     try {
       let response;
-      if (targetSymbol || startTime || endTime) {
+      if (mergedFilters.symbol || mergedFilters.startTime || mergedFilters.endTime || mergedFilters.timeframe) {
         response = await fetch(`${API_BASE}/api/report/${reportId}/analyze`, {
           method: 'POST',
           headers: { 
@@ -138,9 +160,10 @@ function App() {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ 
-            target_symbol: targetSymbol,
-            start_time: startTime,
-            end_time: endTime
+            target_symbol: mergedFilters.symbol,
+            start_time: mergedFilters.startTime,
+            end_time: mergedFilters.endTime,
+            timeframe: mergedFilters.timeframe
           })
         });
       } else {
@@ -272,20 +295,27 @@ function App() {
           <Dashboard 
             data={data} 
             onSymbolChange={(symbol) => {
+              const newFilters = { symbol, startTime: null, endTime: null, timeframe: null };
               if (currentSessionId) {
-                handleLoadSession(currentSessionId, symbol);
+                handleLoadSession(currentSessionId, newFilters);
               } else {
-                handleFile(selectedFile, symbol);
+                handleFile(selectedFile, newFilters);
               }
             }} 
-            onTimeRangeChange={(start, end) => {
-              const sym = data.active_symbol || null;
+            onTimeframeChange={(timeframe) => {
+              const newFilters = { timeframe };
               if (currentSessionId) {
-                handleLoadSession(currentSessionId, sym, start, end);
+                handleLoadSession(currentSessionId, newFilters);
               } else {
-                // If there's no session id (just uploaded), time filtering is harder 
-                // unless we implement it in /api/analyze as well. For now it triggers full reload.
-                handleFile(selectedFile, sym);
+                handleFile(selectedFile, newFilters);
+              }
+            }}
+            onTimeRangeChange={(start, end) => {
+              const newFilters = { startTime: start, endTime: end };
+              if (currentSessionId) {
+                handleLoadSession(currentSessionId, newFilters);
+              } else {
+                handleFile(selectedFile, newFilters);
               }
             }}
           />

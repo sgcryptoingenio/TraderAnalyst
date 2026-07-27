@@ -182,6 +182,7 @@ def get_all_reports(admin_payload: dict = Depends(require_admin), db = Depends(g
 async def get_analysis(
     session_id: Optional[int] = None,
     target_symbol: Optional[str] = None,
+    timeframe: Optional[str] = None,
     user_id: int = Depends(get_current_user),
     db = Depends(get_db)
 ):
@@ -218,7 +219,7 @@ async def get_analysis(
         df['exit_time'] = pd.to_datetime(df['exit_time'], errors='coerce')
         df = df.dropna(subset=['exit_time'])
         
-    metrics = await analyze_trades(df, target_symbol)
+    metrics = await analyze_trades(df, target_symbol, timeframe)
     
     cursor = conn.cursor()
     cursor.execute("SELECT value FROM settings WHERE key = 'mentorship_link'")
@@ -274,6 +275,9 @@ def get_market_data(symbol: str):
 async def analyze_history(
     file: UploadFile = File(...),
     target_symbol: str = Form(None),
+    timeframe: str = Form(None),
+    start_time: str = Form(None),
+    end_time: str = Form(None),
     user_id: int = Depends(get_current_user),
     db = Depends(get_db)
 ):
@@ -299,11 +303,16 @@ async def analyze_history(
         # Solo pasar conexión de BD si es una carga global, para que se guarde el upload_session
         # Usamos `not target_symbol` para atrapar tanto None como strings vacíos ("")
         if not target_symbol:
-            df = ingest_file(temp_file_path, db, user_id, file.filename)
+            df = await run_in_threadpool(ingest_file, temp_file_path, db, user_id, file.filename)
         else:
-            df = ingest_file(temp_file_path)
+            df = await run_in_threadpool(ingest_file, temp_file_path)
             
-        metrics = await analyze_trades(df, target_symbol)
+        if start_time:
+            df = df[df['exit_time'] >= pd.to_datetime(start_time)]
+        if end_time:
+            df = df[df['exit_time'] <= pd.to_datetime(end_time)]
+            
+        metrics = await analyze_trades(df, target_symbol, timeframe)
 
         exchange_name = df['exchange'].iloc[0] if not df.empty else "Desconocido"
 
@@ -474,6 +483,7 @@ class AnalyzeRequest(BaseModel):
     target_symbol: Optional[str] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
+    timeframe: Optional[str] = None
 
 @app.post("/api/report/{report_id}/analyze")
 async def analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: int = Depends(get_current_user), db = Depends(get_db)):
@@ -527,7 +537,7 @@ async def analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: in
         if req.end_time:
             df = df[df['exit_time'] <= pd.to_datetime(req.end_time)]
         
-        metrics = await analyze_trades(df, req.target_symbol)
+        metrics = await analyze_trades(df, req.target_symbol, req.timeframe)
 
         return {
             "success": True,
