@@ -4,6 +4,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Auth from './components/Auth';
 import History from './components/History';
 import AdminPanel from './components/AdminPanel';
+import MentorDashboard from './components/MentorDashboard';
 import ChangePasswordModal from './components/ChangePasswordModal';
 import Landing from './components/Landing';
 import { Lock, Moon, Sun, UploadCloud, Search } from 'lucide-react';
@@ -14,7 +15,7 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [username, setUsername] = useState(localStorage.getItem('username') || null);
   const [role, setRole] = useState(localStorage.getItem('role') || 'user');
-  const [view, setView] = useState('upload'); // 'upload', 'dashboard', 'history', 'admin'
+  const [view, setView] = useState('upload'); // 'upload', 'dashboard', 'history', 'admin', 'mentor'
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -187,10 +188,9 @@ function App() {
       const result = await response.json();
       
       setData(prevData => {
-        let newData = (!targetSymbol && result.report) ? result.report : result;
+        let newData = (!mergedFilters.symbol && result.report) ? result.report : result;
         
-        // Mantener la curva de ganancias global (y el gráfico de TV) si estamos aplicando un filtro temporal
-        if ((startTime || endTime) && prevData && prevData.metrics) {
+        if ((mergedFilters.startTime || mergedFilters.endTime) && prevData && prevData.metrics) {
            if (prevData.metrics.equity_curve) {
              newData.metrics.equity_curve = prevData.metrics.equity_curve;
            }
@@ -227,10 +227,15 @@ function App() {
         <h2>Sabueso</h2>
         <div className="nav-buttons">
           <span className="text-secondary" style={{ marginRight: '10px' }}>
-            Hola, <strong className="text-neutral">{username}</strong> {role === 'admin' && <span style={{color: '#f59e0b'}}>(Admin)</span>}
+            Hola, <strong className="text-neutral">{username}</strong> 
+            {role === 'admin' && <span style={{color: '#f59e0b', marginLeft: '5px'}}>(Admin)</span>}
+            {(role === 'mentor') && <span style={{color: '#10b981', marginLeft: '5px'}}>(Mentor)</span>}
           </span>
           <button onClick={() => setView('upload')} className="nav-btn">Auditar</button>
           <button onClick={() => setView('history')} className="nav-btn">Historial</button>
+          {role === 'mentor' && (
+            <button onClick={() => setView('mentor')} className="nav-btn" style={{color: '#10b981', borderColor: '#10b981'}}>Mentor</button>
+          )}
           {role === 'admin' && (
             <button onClick={() => setView('admin')} className="nav-btn warning">Maestro</button>
           )}
@@ -250,6 +255,7 @@ function App() {
 
       {view === 'history' && <History token={token} onReportSelect={(sessionId) => handleLoadSession(sessionId)} />}
       {view === 'admin' && <AdminPanel token={token} />}
+      {view === 'mentor' && <MentorDashboard token={token} onReportSelect={(sessionId) => handleLoadSession(sessionId)} />}
 
       {view === 'upload' && !loading && (
         <div className="upload-container hero-upload">

@@ -6,6 +6,7 @@ const Auth = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -15,7 +16,9 @@ const Auth = ({ onLogin }) => {
     setSuccessMsg('');
     try {
       const url = isLogin ? `${API_BASE}/api/login` : `${API_BASE}/api/register`;
-      const bodyParams = isLogin ? { username, password } : { username, password, email };
+      const bodyParams = isLogin 
+        ? { username, password } 
+        : { username, password, email, invite_code: inviteCode || null };
       
       const res = await fetch(url, {
         method: 'POST',
@@ -44,7 +47,10 @@ const Auth = ({ onLogin }) => {
       <form onSubmit={handleSubmit} style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
         <input type="text" placeholder="Usuario" value={username} onChange={e=>setUsername(e.target.value)} required style={{padding: '10px', borderRadius: '5px', border: '1px solid #333', background: '#222', color: '#fff'}} />
         {!isLogin && (
-          <input type="email" placeholder="Correo Electrónico" value={email} onChange={e=>setEmail(e.target.value)} required style={{padding: '10px', borderRadius: '5px', border: '1px solid #333', background: '#222', color: '#fff'}} />
+          <>
+            <input type="email" placeholder="Correo Electrónico" value={email} onChange={e=>setEmail(e.target.value)} required style={{padding: '10px', borderRadius: '5px', border: '1px solid #333', background: '#222', color: '#fff'}} />
+            <input type="text" placeholder="Código de Academia (Opcional)" value={inviteCode} onChange={e=>setInviteCode(e.target.value)} style={{padding: '10px', borderRadius: '5px', border: '1px solid #333', background: '#222', color: '#fff'}} />
+          </>
         )}
         <input type="password" placeholder="Contraseña" value={password} onChange={e=>setPassword(e.target.value)} required style={{padding: '10px', borderRadius: '5px', border: '1px solid #333', background: '#222', color: '#fff'}} />
         <button type="submit" style={{padding: '10px', background: 'var(--primary)', color: '#000', fontWeight: 'bold', border: 'none', borderRadius: '5px', cursor: 'pointer'}}>{isLogin ? 'Ingresar' : 'Crear Cuenta'}</button>

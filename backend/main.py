@@ -52,6 +52,7 @@ class UserAuth(BaseModel):
     username: str
     password: str
     email: Optional[str] = None
+    invite_code: Optional[str] = None
 
 class ChangePasswordRequest(BaseModel):
     old_password: str
@@ -77,12 +78,23 @@ def register(user: UserAuth, db = Depends(get_db)):
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM users WHERE username = ?", (user.username,))
     if cursor.fetchone():
-
         raise HTTPException(status_code=400, detail="El usuario ya existe")
+    
+    mentor_id = None
+    if user.invite_code:
+        cursor.execute("SELECT id FROM users WHERE invite_code = ?", (user.invite_code,))
+        mentor = cursor.fetchone()
+        if not mentor:
+            raise HTTPException(status_code=400, detail="El código de academia no es válido")
+        mentor_id = mentor['id']
     
     role = 'admin' if user.username.lower() in ['admin', 'profesor'] else 'user'
     hashed_password = get_password_hash(user.password)
-    cursor.execute("INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, ?, ?)", (user.username, hashed_password, role, user.email))
+    
+    cursor.execute(
+        "INSERT INTO users (username, password_hash, role, email, mentor_id) VALUES (?, ?, ?, ?, ?)", 
+        (user.username, hashed_password, role, user.email, mentor_id)
+    )
     conn.commit()
     
     return {"success": True, "message": "Usuario registrado exitosamente"}
@@ -91,14 +103,18 @@ def register(user: UserAuth, db = Depends(get_db)):
 def login(user: UserAuth, db = Depends(get_db)):
     conn = db
     cursor = conn.cursor()
-    cursor.execute("SELECT id, password_hash, role FROM users WHERE username = ?", (user.username,))
+    cursor.execute("SELECT id, password_hash, role, mentor_id FROM users WHERE username = ?", (user.username,))
     db_user = cursor.fetchone()
-    
     
     if not db_user or not verify_password(user.password, db_user["password_hash"]):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
-    access_token = create_access_token(data={"sub": str(db_user["id"]), "username": user.username, "role": db_user["role"]})
+    access_token = create_access_token(data={
+        "sub": str(db_user["id"]), 
+        "username": user.username, 
+        "role": db_user["role"],
+        "mentor_id": db_user["mentor_id"]
+    })
     return {"access_token": access_token, "token_type": "bearer", "username": user.username, "role": db_user["role"]}
 
 @app.post("/api/change-password")
@@ -150,14 +166,62 @@ def require_admin(authorization: str = Header(None), token: str = None):
         raise HTTPException(status_code=403, detail="Permisos de administrador requeridos")
     return payload
 
+def require_mentor(authorization: str = Header(None), token: str = None):
+    if not authorization and not token:
+        raise HTTPException(status_code=401, detail="No autenticado")
+
+    if authorization and authorization.startswith("Bearer "):
+        token_str = authorization.split(" ")[1]
+    else:
+        token_str = token
+
+    payload = decode_access_token(token_str)
+    if not payload or payload.get("role") not in ["admin", "mentor", "profesor"]:
+        raise HTTPException(status_code=403, detail="Permisos de mentor requeridos")
+    return payload
+
 @app.get("/api/admin/users")
 def get_all_users(admin_payload: dict = Depends(require_admin), db = Depends(get_db)):
     conn = db
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, role, created_at FROM users")
+    cursor.execute("SELECT id, username, role, mentor_id, invite_code, created_at FROM users")
     rows = cursor.fetchall()
     
     return {"success": True, "users": [dict(row) for row in rows]}
+
+@app.get("/api/mentor/students")
+def get_mentor_students(mentor_payload: dict = Depends(require_mentor), db = Depends(get_db)):
+    conn = db
+    cursor = conn.cursor()
+    mentor_id = int(mentor_payload["sub"])
+    
+    # Fetch students assigned to this mentor
+    cursor.execute("""
+        SELECT u.id, u.username, u.created_at, 
+               (SELECT total_pnl FROM reports r WHERE r.user_id = u.id ORDER BY upload_time DESC LIMIT 1) as last_pnl,
+               (SELECT win_rate FROM reports r WHERE r.user_id = u.id ORDER BY upload_time DESC LIMIT 1) as last_win_rate
+        FROM users u 
+        WHERE u.mentor_id = ?
+    """, (mentor_id,))
+    rows = cursor.fetchall()
+    
+    return {"success": True, "students": [dict(row) for row in rows]}
+
+@app.get("/api/mentor/students/{student_id}/reports")
+def get_mentor_student_reports(student_id: int, mentor_payload: dict = Depends(require_mentor), db = Depends(get_db)):
+    conn = db
+    cursor = conn.cursor()
+    mentor_id = int(mentor_payload["sub"])
+    
+    # Verify student belongs to this mentor
+    cursor.execute("SELECT id FROM users WHERE id = ? AND mentor_id = ?", (student_id, mentor_id))
+    if not cursor.fetchone():
+        raise HTTPException(status_code=403, detail="El estudiante no pertenece a tu academia")
+        
+    cursor.execute("SELECT id, filename, exchange, total_trades, win_rate, total_pnl, upload_time FROM reports WHERE user_id = ? ORDER BY upload_time DESC", (student_id,))
+    rows = cursor.fetchall()
+    
+    return {"success": True, "reports": [dict(row) for row in rows]}
 
 @app.get("/api/admin/reports")
 def get_all_reports(admin_payload: dict = Depends(require_admin), db = Depends(get_db)):
@@ -390,7 +454,18 @@ async def get_report_details(report_id: int, user_id: int = Depends(get_current_
 
     cursor.execute("SELECT role FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
-    if not user or (user['role'] != 'admin' and report['user_id'] != user_id):
+    
+    is_authorized = False
+    if user:
+        if user['role'] == 'admin' or report['user_id'] == user_id:
+            is_authorized = True
+        elif user['role'] in ['mentor', 'profesor']:
+            cursor.execute("SELECT mentor_id FROM users WHERE id = ?", (report['user_id'],))
+            student = cursor.fetchone()
+            if student and student['mentor_id'] == user_id:
+                is_authorized = True
+                
+    if not is_authorized:
         raise HTTPException(status_code=403, detail="Acceso denegado")
 
     return {
@@ -507,7 +582,18 @@ async def analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: in
 
     cursor.execute("SELECT role FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
-    if not user or (user['role'] != 'admin' and report['user_id'] != user_id):
+    
+    is_authorized = False
+    if user:
+        if user['role'] == 'admin' or report['user_id'] == user_id:
+            is_authorized = True
+        elif user['role'] in ['mentor', 'profesor']:
+            cursor.execute("SELECT mentor_id FROM users WHERE id = ?", (report['user_id'],))
+            student = cursor.fetchone()
+            if student and student['mentor_id'] == user_id:
+                is_authorized = True
+                
+    if not is_authorized:
         raise HTTPException(status_code=403, detail="Acceso denegado")
 
     file_path = report['file_path']

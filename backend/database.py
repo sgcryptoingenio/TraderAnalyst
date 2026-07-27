@@ -81,9 +81,21 @@ def init_db():
                 email TEXT,
                 password_hash TEXT NOT NULL,
                 role TEXT DEFAULT 'user',
+                mentor_id INTEGER,
+                invite_code TEXT UNIQUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN mentor_id INTEGER")
+        except sqlite3.OperationalError:
+            pass
+            
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN invite_code TEXT")
+        except sqlite3.OperationalError:
+            pass
         
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS reports (
