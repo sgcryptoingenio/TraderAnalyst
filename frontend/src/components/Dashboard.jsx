@@ -1,12 +1,24 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Brush } from 'recharts';
+import { Loader2, Download, Globe, Info, AlertTriangle, Target, TrendingUp, Trophy } from 'lucide-react';
 import TVChart from './TVChart';
 import html2pdf from 'html2pdf.js';
 import API_BASE from '../api';
 
+const STRATEGY_TOOLTIPS = {
+  "Reversión a la media (RSI)": "Mide si compraste cuando el activo estaba sobrevendido (RSI bajo) o vendiste cuando estaba sobrecomprado (RSI alto). En el gráfico: Entradas en picos o valles extremos del RSI.",
+  "Rebote VWAP": "Mide si tus entradas coinciden con rebotes en el Precio Promedio Ponderado por Volumen (VWAP). En el gráfico: El precio cae al VWAP y rebota a favor de tu trade.",
+  "SMC / Liquidación (Rechazo)": "Smart Money Concepts: Mide si entraste tras una 'caza de stops' (mecha larga que limpia liquidez). En el gráfico: Velas con mechas muy largas rechazando una zona antes de tu entrada.",
+  "Breakout de Rango (Ruptura)": "Mide si operaste una ruptura después de un periodo de consolidación. En el gráfico: Expansión fuerte de precio y volumen tras un mercado lateral.",
+  "Pullback Dinámico a EMAs": "Mide si entraste en un retroceso hacia las Medias Móviles Exponenciales (EMAs) durante una tendencia. En el gráfico: Tendencia clara y el precio retrocede a la EMA 9 o 21 antes de continuar.",
+  "Momentum / Volume Spikes": "Mide si entraste acompañado de un pico inusual de volumen. En el gráfico: Barras de volumen inusualmente altas acompañando tu dirección.",
+  "Fading (Caza-Reversiones)": "Mide si operaste contra la tendencia intentando atrapar el techo o el suelo exacto. En el gráfico: Entrar corto en velas verdes fuertes o largo en rojas fuertes."
+};
+
 const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange }) => {
   const [mentorshipLink, setMentorshipLink] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [hoveredStrategy, setHoveredStrategy] = useState(null);
   
   const { exchange, metrics, active_symbol } = data;
 
@@ -163,9 +175,9 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
     );
   }
 
-  const renderTable = (trades, title, emoji) => (
+  const renderTable = (trades, title, icon) => (
     <div className="glass-card table-container" style={{flex: 1, minWidth: '300px'}}>
-      <h3 style={{marginBottom: '15px'}}>{emoji} {title}</h3>
+      <h3 style={{marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px'}}>{icon} {title}</h3>
       {trades && trades.length > 0 ? (
         <table>
           <thead><tr><th>Fecha</th><th>Par</th><th>Lado</th><th>PNL</th></tr></thead>
@@ -205,13 +217,13 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
             style={{position: 'absolute', right: '20px', top: '20px', display: 'flex', alignItems: 'center', gap: '8px'}}
             disabled={isExporting}
           >
-            {isExporting ? '⏳ Generando...' : '📄 Exportar a PDF'}
+            <Download size={16} /> Exportar a PDF
           </button>
         )}
         <h2 style={{fontSize: '2rem', marginBottom: '24px'}}>Análisis de Historial: <span style={{color: 'var(--text-primary)', fontWeight: '800'}}>{exchange}</span></h2>
         {metrics.available_symbols && metrics.available_symbols.length > 0 && (
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
-            <button onClick={() => onSymbolChange(null)} className="nav-btn" style={!active_symbol ? {background: 'var(--primary)', color: '#000', borderColor: 'var(--primary)', boxShadow: '0 0 15px var(--primary-glow)'} : {}}>🌍 Global</button>
+            <button onClick={() => onSymbolChange(null)} className="nav-btn" style={!active_symbol ? {background: 'var(--primary)', color: '#000', borderColor: 'var(--primary)', boxShadow: '0 0 15px var(--primary-glow)', display: 'flex', alignItems: 'center', gap: '6px'} : {display: 'flex', alignItems: 'center', gap: '6px'}}><Globe size={14} /> Global</button>
             {metrics.available_symbols.map(s => (
               <button key={s} onClick={() => onSymbolChange(s)} className="nav-btn" style={active_symbol === s ? {background: 'var(--primary)', color: '#000', borderColor: 'var(--primary)', boxShadow: '0 0 15px var(--primary-glow)'} : {}}>{s}</button>
             ))}
@@ -345,7 +357,36 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
               {Object.entries(metrics.strategies).sort((a,b)=>b[1]-a[1]).map(([strat, score]) => (
                 <div key={strat}>
                   <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '6px'}}>
-                    <span style={{fontSize: '0.88rem', fontWeight: '500'}}>{strat}</span>
+                    <span style={{fontSize: '0.88rem', fontWeight: '500', position: 'relative'}}>
+                      {strat}
+                      <span 
+                        style={{marginLeft: '6px', cursor: 'help'}}
+                        onMouseEnter={() => setHoveredStrategy(strat)}
+                        onMouseLeave={() => setHoveredStrategy(null)}
+                      >
+                        <Info size={14} color="#a1a1aa" />
+                        {hoveredStrategy === strat && (
+                          <div style={{
+                            position: 'absolute', 
+                            bottom: 'calc(100% + 5px)', 
+                            left: '50%', 
+                            transform: 'translateX(-50%)', 
+                            background: '#18181b', 
+                            border: '1px solid var(--border-color)', 
+                            padding: '10px', 
+                            borderRadius: '8px', 
+                            width: '240px', 
+                            zIndex: 100, 
+                            color: '#f4f4f5', 
+                            fontSize: '0.75rem', 
+                            fontWeight: 'normal',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.8)'
+                          }}>
+                            {STRATEGY_TOOLTIPS[strat] || "Información de la estrategia."}
+                          </div>
+                        )}
+                      </span>
+                    </span>
                     <span style={{fontWeight: '700', color: score >= 60 ? 'var(--primary)' : score >= 40 ? '#f59e0b' : 'var(--loss-color)', fontSize: '0.9rem'}}>{score}%</span>
                   </div>
                   <div style={{width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '99px', overflow: 'hidden'}}>
@@ -371,8 +412,8 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
       {active_symbol && (
         <div className="glass-card" style={{ marginBottom: '30px' }}>
           <h3 style={{marginBottom: '20px'}}>Reconstrucción Visual de Trades y Análisis Quant</h3>
-          {marketDataLoading && <div style={{padding: '40px', textAlign: 'center', color: '#a1a1aa'}}>Obteniendo velas en tiempo real y calculando indicadores... ⏳</div>}
-          {marketDataError && <div style={{padding: '40px', textAlign: 'center', color: '#ef4444'}}>⚠️ {marketDataError}</div>}
+          {marketDataLoading && <div style={{padding: '40px', textAlign: 'center', color: '#a1a1aa'}}>Obteniendo velas en tiempo real y calculando indicadores... <Loader2 size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginLeft: '8px'}} /></div>}
+          {marketDataError && <div style={{padding: '40px', textAlign: 'center', color: '#ef4444'}}><AlertTriangle size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginRight: '8px'}} /> {marketDataError}</div>}
           {!marketDataLoading && !marketDataError && marketData && (
             <TVChart marketData={marketData} symbol={active_symbol} />
           )}
@@ -451,7 +492,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
 
       {/* TABLES: TOP WINNERS & LOSERS */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '30px' }}>
-        {renderTable(metrics.top_winners, "Top 10 Trades Ganadores", "🏆")}
+        {renderTable(metrics.top_winners, "Top 10 Trades Ganadores", <Trophy size={16} color="var(--primary)" />)}
         {renderTable(metrics.top_losers, "Top 10 Peores Trades", "🚨")}
       </div>
 

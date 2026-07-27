@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Download } from 'lucide-react';
 import API_BASE from '../api';
 
 const History = ({ token, onReportSelect }) => {

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { BarChart3, ShieldAlert, TrendingUp, FileSpreadsheet, Bot, LineChart } from 'lucide-react';
 import './Landing.css';
 
 export default function Landing({ onEnterApp }) {
@@ -196,24 +197,24 @@ export default function Landing({ onEnterApp }) {
           <div className="section-title" style={{marginBottom: '48px'}}>Todo lo que<br/>necesitas ver</div>
           <div className="bento">
             <div className="bc wide">
-              <span className="bc-icon">📊</span>
+              <span className="bc-icon"><LineChart size={40} color="var(--primary)" /></span>
               <h3>Curva de Equity Interactiva</h3>
               <p>Visualiza la evolución operación por operación con un slider de zoom temporal. Identifica exactamente en qué períodos tu sistema funciona y cuándo falla.</p>
               <span className="tag">Interactivo</span>
             </div>
             <div className="bc">
-              <span className="bc-icon">🎯</span>
+              <span className="bc-icon"><Bot size={40} color="var(--primary)" /></span>
               <h3>Modelado Quant</h3>
               <p>Correlación de tu operativa con 6+ estrategias de mercado para identificar tu perfil real.</p>
               <span className="tag">IA</span>
             </div>
             <div className="bc">
-              <span className="bc-icon">⚠️</span>
+              <span className="bc-icon"><ShieldAlert size={40} color="var(--loss-color)" /></span>
               <h3>Alertas de Riesgo</h3>
               <p>Detección de Martingala, re-entradas emocionales y sesgos Long/Short que no ves a simple vista.</p>
             </div>
             <div className="bc">
-              <span className="bc-icon">📈</span>
+              <span className="bc-icon"><TrendingUp size={40} color="var(--primary)" /></span>
               <h3>Reconstrucción Visual</h3>
               <p>Tus trades superpuestos sobre el gráfico histórico real del mercado. Ve el contexto completo de cada entrada.</p>
             </div>

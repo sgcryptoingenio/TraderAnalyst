@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CheckCircle, Loader2 } from 'lucide-react';
 import API_BASE from '../api';
 
 const ChangePasswordModal = ({ token, onClose }) => {
@@ -38,7 +39,7 @@ const ChangePasswordModal = ({ token, onClose }) => {
         throw new Error(data.detail || 'Error al cambiar la contraseña.');
       }
 
-      setStatus({ type: 'success', message: '✅ Contraseña actualizada correctamente.' });
+      setStatus({ type: 'success', message: <><CheckCircle size={14} style={{display: 'inline-block', verticalAlign: 'middle', marginRight: '6px'}} /> Contraseña actualizada correctamente.</> });
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -206,7 +207,7 @@ const ChangePasswordModal = ({ token, onClose }) => {
               cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
-            {loading ? '⏳ Actualizando...' : 'Actualizar Contraseña'}
+            {loading ? <><Loader2 size={16} className="lucide-spin" style={{display: 'inline-block', verticalAlign: 'middle'}} /> Actualizando...</> : 'Actualizar Contraseña'}
           </button>
         </form>
       </div>

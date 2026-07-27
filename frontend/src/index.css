@@ -58,6 +58,15 @@ body {
   transition: background-color 0.4s ease, color 0.4s ease;
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.lucide-spin {
+  animation: spin 1s linear infinite;
+}
+
 /* Typography Enhancements */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);

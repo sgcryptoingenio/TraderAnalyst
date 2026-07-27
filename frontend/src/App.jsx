@@ -6,6 +6,7 @@ import History from './components/History';
 import AdminPanel from './components/AdminPanel';
 import ChangePasswordModal from './components/ChangePasswordModal';
 import Landing from './components/Landing';
+import { Lock, Moon, Sun, UploadCloud, Search } from 'lucide-react';
 import API_BASE from './api';
 import './index.css';
 
@@ -233,11 +234,11 @@ function App() {
           {role === 'admin' && (
             <button onClick={() => setView('admin')} className="nav-btn warning">Maestro</button>
           )}
-          <button onClick={() => setShowSecurityModal(true)} className="nav-btn" title="Cambiar contraseña">
-            🔒
+          <button onClick={() => setShowSecurityModal(true)} className="nav-btn" title="Cambiar contraseña" style={{ display: 'flex', alignItems: 'center' }}>
+            <Lock size={18} />
           </button>
-          <button onClick={toggleTheme} className="theme-toggle-btn" title="Cambiar Tema">
-            {theme === 'light' ? '🌙' : '☀️'}
+          <button onClick={toggleTheme} className="theme-toggle-btn" title="Cambiar Tema" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
           <button onClick={handleLogout} className="nav-btn danger">Salir</button>
         </div>
@@ -265,7 +266,7 @@ function App() {
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
             onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
           >
-            <span className="file-icon" style={{fontSize: '2.5rem', display: 'block', marginBottom: '10px'}}>📄</span>
+            <UploadCloud size={48} style={{marginBottom: '16px', color: 'var(--primary)'}} />
             <span className="file-msg" style={{display: 'block', marginBottom: '16px', fontWeight: '500'}}>Haz clic o arrastra tu archivo CSV/XLSX aquí</span>
             <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }} onChange={(e) => { if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]); }} />
             <button className="nav-btn" onClick={() => inputRef.current.click()} style={{padding: '12px 32px', fontSize: '1rem', background: 'var(--primary)', color: '#000'}}>Seleccionar archivo</button>
@@ -277,7 +278,7 @@ function App() {
         <div className="loading-overlay glass-card">
           <div className="sabueso-loader">
             <div className="radar"></div>
-            <div className="magnifier">🔍</div>
+            <div className="magnifier" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Search size={20} color="var(--primary)" /></div>
           </div>
           <h3 className="loading-text">{loadingText}</h3>
         </div>
