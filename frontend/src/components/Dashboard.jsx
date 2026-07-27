@@ -414,7 +414,17 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
           <h3 style={{marginBottom: '20px'}}>Reconstrucción Visual de Trades y Análisis Quant</h3>
           {marketDataLoading && <div style={{padding: '40px', textAlign: 'center', color: '#a1a1aa'}}>Obteniendo velas en tiempo real y calculando indicadores... <Loader2 size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginLeft: '8px'}} /></div>}
           {marketDataError && <div style={{padding: '40px', textAlign: 'center', color: '#ef4444'}}><AlertTriangle size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginRight: '8px'}} /> {marketDataError}</div>}
-          {!marketDataLoading && !marketDataError && marketData && (
+          {!marketDataLoading && !marketDataError && marketData && marketData.ohlcv && marketData.ohlcv.length === 0 && (
+            <div style={{padding: '40px', textAlign: 'center', color: '#f5a623', background: 'rgba(245, 166, 35, 0.05)', borderRadius: '16px', border: '1px solid rgba(245, 166, 35, 0.2)'}}>
+              <AlertTriangle size={48} style={{marginBottom: '16px', color: '#f5a623'}} />
+              <h3 style={{margin: 0, color: '#f5a623'}}>Gráfico No Disponible (Limitación de Rendimiento)</h3>
+              <p style={{margin: '12px auto 0', opacity: 0.9, maxWidth: '600px', lineHeight: '1.6'}}>
+                Para asegurar el rendimiento de la aplicación, la reconstrucción visual profunda y el análisis Quant 
+                se limitan a los últimos 90 días operados en tu historial, o no se encontraron velas del activo para tus fechas seleccionadas.
+              </p>
+            </div>
+          )}
+          {!marketDataLoading && !marketDataError && marketData && marketData.ohlcv && marketData.ohlcv.length > 0 && (
             <TVChart marketData={marketData} symbol={active_symbol} />
           )}
         </div>

@@ -1,11 +1,13 @@
 import ccxt
 import pandas as pd
 
-# Instancia global síncrona
-exchange = ccxt.binance({
-    'enableRateLimit': True,
-    'timeout': 15000,
-})
+# Instancias globales síncronas para evitar reiniciar la caché de markets y agilizar peticiones
+binance_ex = ccxt.binance({'enableRateLimit': False, 'timeout': 10000})
+bybit_ex = ccxt.bybit({'enableRateLimit': False, 'timeout': 10000})
+okx_ex = ccxt.okx({'enableRateLimit': False, 'timeout': 10000})
+kucoin_ex = ccxt.kucoin({'enableRateLimit': False, 'timeout': 10000})
+
+GLOBAL_EXCHANGES = [binance_ex, bybit_ex, okx_ex, kucoin_ex]
 
 def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
     """
@@ -25,12 +27,7 @@ def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
         if '/' not in clean_symbol:
             clean_symbol = clean_symbol.replace('USDT', '/USDT')
             
-        exchanges_to_try = [
-            exchange, # Binance (instancia global)
-            ccxt.bybit({'enableRateLimit': True, 'timeout': 15000}),
-            ccxt.okx({'enableRateLimit': True, 'timeout': 15000}),
-            ccxt.kucoin({'enableRateLimit': True, 'timeout': 15000})
-        ]
+        exchanges_to_try = GLOBAL_EXCHANGES
         
         ohlcv = None
         last_error = None
@@ -77,12 +74,7 @@ def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
         if '/' not in clean_symbol:
             clean_symbol = clean_symbol.replace('USDT', '/USDT')
             
-        exchanges_to_try = [
-            exchange, # Binance (instancia global)
-            ccxt.bybit({'enableRateLimit': True, 'timeout': 15000}),
-            ccxt.okx({'enableRateLimit': True, 'timeout': 15000}),
-            ccxt.kucoin({'enableRateLimit': True, 'timeout': 15000})
-        ]
+        exchanges_to_try = GLOBAL_EXCHANGES
         
         all_ohlcv = []
         

@@ -241,6 +241,13 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
             start_time = df['entry_time'].min() - pd.Timedelta(days=2) # Dar un poco de margen para EMAs
             end_time = df['exit_time'].max() if df['exit_time'].notna().any() else datetime.now()
             
+            # --- PROTECCIÓN DE RENDIMIENTO ---
+            # Si el CSV tiene trades muy antiguos (ej. varios años), la descarga de velas de 5m tardaría horas y sobrecargaría CCXT.
+            # Limitamos la reconstrucción gráfica a los últimos 90 días de la operativa subida.
+            if (end_time - start_time).days > 90:
+                start_time = end_time - pd.Timedelta(days=90)
+                advice.append("⚠️ Aviso de Rendimiento: Tu historial abarca un rango extenso. Para garantizar un buen tiempo de carga, la reconstrucción gráfica y el análisis Quant se limitaron a los últimos 90 días de tus operaciones. (Tus métricas globales y de PnL sí incluyen toda tu historia).")
+            
             dynamic_tf = get_dynamic_timeframe(median_duration_secs, start_time, end_time)
             quant_tf = selected_timeframe if selected_timeframe else dynamic_tf
             

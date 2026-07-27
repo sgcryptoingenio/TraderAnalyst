@@ -307,10 +307,19 @@ async def analyze_history(
         else:
             df = await run_in_threadpool(ingest_file, temp_file_path)
             
+        if 'exit_time' in df.columns and hasattr(df['exit_time'].dt, 'tz') and df['exit_time'].dt.tz is not None:
+            df['exit_time'] = df['exit_time'].dt.tz_localize(None)
+            
         if start_time:
-            df = df[df['exit_time'] >= pd.to_datetime(start_time)]
+            st = pd.to_datetime(start_time)
+            if st.tzinfo is not None:
+                st = st.tz_localize(None)
+            df = df[df['exit_time'] >= st]
         if end_time:
-            df = df[df['exit_time'] <= pd.to_datetime(end_time)]
+            et = pd.to_datetime(end_time)
+            if et.tzinfo is not None:
+                et = et.tz_localize(None)
+            df = df[df['exit_time'] <= et]
             
         metrics = await analyze_trades(df, target_symbol, timeframe)
 
@@ -531,11 +540,20 @@ async def analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: in
                 df['exit_time'] = pd.to_datetime(df['exit_time'], errors='coerce')
                 df = df.dropna(subset=['exit_time'])
                 
+        if 'exit_time' in df.columns and hasattr(df['exit_time'].dt, 'tz') and df['exit_time'].dt.tz is not None:
+            df['exit_time'] = df['exit_time'].dt.tz_localize(None)
+
         # Filter by date range if provided
         if req.start_time:
-            df = df[df['exit_time'] >= pd.to_datetime(req.start_time)]
+            st = pd.to_datetime(req.start_time)
+            if st.tzinfo is not None:
+                st = st.tz_localize(None)
+            df = df[df['exit_time'] >= st]
         if req.end_time:
-            df = df[df['exit_time'] <= pd.to_datetime(req.end_time)]
+            et = pd.to_datetime(req.end_time)
+            if et.tzinfo is not None:
+                et = et.tz_localize(None)
+            df = df[df['exit_time'] <= et]
         
         metrics = await analyze_trades(df, req.target_symbol, req.timeframe)
 
