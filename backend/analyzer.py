@@ -158,11 +158,16 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
     equity_data = equity_curve.to_dict('records')
     
     # Win / Loss
-    wins = df[df['true_pnl_pct'] > 0]
-    losses = df[df['true_pnl_pct'] < 0]
+    wins = df[df['reported_pnl'] > 0]
+    losses = df[df['reported_pnl'] < 0]
     win_rate = len(wins) / len(df) if len(df) > 0 else 0
-    avg_win_pct = wins['true_pnl_pct'].mean() if not wins.empty else 0
-    avg_loss_pct = losses['true_pnl_pct'].mean() if not losses.empty else 0
+    
+    valid_pct_wins = wins[wins['true_pnl_pct'] > 0]
+    avg_win_pct = valid_pct_wins['true_pnl_pct'].mean() if not valid_pct_wins.empty else 0
+    
+    valid_pct_losses = losses[losses['true_pnl_pct'] < 0]
+    avg_loss_pct = valid_pct_losses['true_pnl_pct'].mean() if not valid_pct_losses.empty else 0
+    
     risk_reward = abs(avg_win_pct / avg_loss_pct) if avg_loss_pct != 0 else float('inf')
     
     # Absolute amounts
