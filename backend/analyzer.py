@@ -94,9 +94,6 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
     # Reemplazar PNL reportado si el exchange falló y reportó 0, siempre que tengamos un tamaño válido
     df['reported_pnl'] = np.where((df['reported_pnl'] == 0) & (df['size'] > 0), calculated_pnl, df['reported_pnl'])
     
-    # Forzar sobreescritura para USDT-M para máxima precisión matemática
-    df['reported_pnl'] = np.where(is_usdt & (df['size'] > 0), calculated_pnl, df['reported_pnl'])
-    
     df['reported_pnl'] = df['reported_pnl'].fillna(0.0)
     
     # Fetch historical prices for COIN-M USD conversion (Bulk Vectorized)
