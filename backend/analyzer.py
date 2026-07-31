@@ -63,6 +63,37 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
         avg_duration = df['duration'].mean()
         avg_duration_str = str(avg_duration).split('.')[0] if pd.notna(avg_duration) else "N/A"
         
+    # Reconstrucción de Precios Faltantes (Interpolación Histórica)
+    missing_prices_mask = ((df['entry_price'] == 0) | (df['exit_price'] == 0)) & df['entry_time'].notna() & df['exit_time'].notna()
+    
+    if missing_prices_mask.any():
+        symbols_missing = df.loc[missing_prices_mask, 'symbol'].unique()
+        for sym in symbols_missing:
+            sym_missing_trades = df[missing_prices_mask & (df['symbol'] == sym)]
+            if sym_missing_trades.empty: continue
+            
+            start_t = sym_missing_trades['entry_time'].min() - pd.Timedelta(hours=1)
+            end_t = sym_missing_trades['exit_time'].max() + pd.Timedelta(hours=1)
+            
+            if pd.notna(start_t) and pd.notna(end_t):
+                # Usamos 15m para tener un buen balance entre precisión de precio y velocidad de descarga
+                market_df = await run_in_threadpool(fetch_historical_data_range, sym, start_t, end_t, timeframe='15m')
+                
+                if not market_df.empty:
+                    market_df = market_df.sort_values('timestamp')
+                    market_df['timestamp'] = pd.to_datetime(market_df['timestamp'], utc=True).dt.tz_localize(None)
+                    
+                    # Interpolar entry_price
+                    entry_df = pd.DataFrame({'time': pd.to_datetime(sym_missing_trades['entry_time'], utc=True).dt.tz_localize(None), 'idx': sym_missing_trades.index}).sort_values('time')
+                    entry_matches = pd.merge_asof(entry_df, market_df[['timestamp', 'close']], left_on='time', right_on='timestamp', direction='nearest').set_index('idx')
+                    
+                    # Interpolar exit_price
+                    exit_df = pd.DataFrame({'time': pd.to_datetime(sym_missing_trades['exit_time'], utc=True).dt.tz_localize(None), 'idx': sym_missing_trades.index}).sort_values('time')
+                    exit_matches = pd.merge_asof(exit_df, market_df[['timestamp', 'close']], left_on='time', right_on='timestamp', direction='nearest').set_index('idx')
+                    
+                    df.loc[entry_matches.index, 'entry_price'] = np.where(df.loc[entry_matches.index, 'entry_price'] == 0, entry_matches['close'], df.loc[entry_matches.index, 'entry_price'])
+                    df.loc[exit_matches.index, 'exit_price'] = np.where(df.loc[exit_matches.index, 'exit_price'] == 0, exit_matches['close'], df.loc[exit_matches.index, 'exit_price'])
+
     # Recalculate true PNL % (Vectorized)
     entry = df['entry_price']
     exit = df['exit_price']
