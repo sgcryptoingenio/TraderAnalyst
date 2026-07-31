@@ -173,27 +173,19 @@ function App() {
     setActiveFilters(mergedFilters);
 
     try {
-      let response;
-      if (mergedFilters.symbol || mergedFilters.startTime || mergedFilters.endTime || mergedFilters.timeframe) {
-        response = await fetch(`${API_BASE}/api/report/${reportId}/analyze`, {
-          method: 'POST',
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ 
-            target_symbol: mergedFilters.symbol,
-            start_time: mergedFilters.startTime,
-            end_time: mergedFilters.endTime,
-            timeframe: mergedFilters.timeframe
-          })
-        });
-      } else {
-        response = await fetch(`${API_BASE}/api/report/${reportId}`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-      }
+      let response = await fetch(`${API_BASE}/api/report/${reportId}/analyze`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          target_symbol: mergedFilters.symbol || null,
+          start_time: mergedFilters.startTime || null,
+          end_time: mergedFilters.endTime || null,
+          timeframe: mergedFilters.timeframe || null
+        })
+      });
 
       if (response.status === 401) {
         handleLogout();
