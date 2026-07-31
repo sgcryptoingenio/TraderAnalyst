@@ -81,14 +81,20 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
                 
                 if not market_df.empty:
                     market_df = market_df.sort_values('timestamp')
-                    market_df['timestamp'] = pd.to_datetime(market_df['timestamp'], utc=True).dt.tz_localize(None)
+                    market_df['timestamp'] = pd.to_datetime(market_df['timestamp'], utc=True).dt.tz_localize(None).astype('datetime64[ns]')
                     
                     # Interpolar entry_price
-                    entry_df = pd.DataFrame({'time': pd.to_datetime(sym_missing_trades['entry_time'], utc=True).dt.tz_localize(None), 'idx': sym_missing_trades.index}).sort_values('time')
+                    entry_df = pd.DataFrame({
+                        'time': pd.to_datetime(sym_missing_trades['entry_time'], utc=True).dt.tz_localize(None).astype('datetime64[ns]'), 
+                        'idx': sym_missing_trades.index
+                    }).sort_values('time')
                     entry_matches = pd.merge_asof(entry_df, market_df[['timestamp', 'close']], left_on='time', right_on='timestamp', direction='nearest').set_index('idx')
                     
                     # Interpolar exit_price
-                    exit_df = pd.DataFrame({'time': pd.to_datetime(sym_missing_trades['exit_time'], utc=True).dt.tz_localize(None), 'idx': sym_missing_trades.index}).sort_values('time')
+                    exit_df = pd.DataFrame({
+                        'time': pd.to_datetime(sym_missing_trades['exit_time'], utc=True).dt.tz_localize(None).astype('datetime64[ns]'), 
+                        'idx': sym_missing_trades.index
+                    }).sort_values('time')
                     exit_matches = pd.merge_asof(exit_df, market_df[['timestamp', 'close']], left_on='time', right_on='timestamp', direction='nearest').set_index('idx')
                     
                     df.loc[entry_matches.index, 'entry_price'] = np.where(df.loc[entry_matches.index, 'entry_price'] == 0, entry_matches['close'], df.loc[entry_matches.index, 'entry_price'])
