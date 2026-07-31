@@ -1,7 +1,28 @@
 import ccxt
 import pandas as pd
+import sqlite3
+import os
+import pickle
 
 # Instancias globales síncronas para evitar reiniciar la caché de markets y agilizar peticiones
+CACHE_DB = os.path.join(os.path.dirname(__file__), 'market_cache.db')
+
+def _init_cache_db():
+    with sqlite3.connect(CACHE_DB) as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS ohlcv_cache (
+                cache_key TEXT PRIMARY KEY,
+                data BLOB
+            )
+        ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS price_cache (
+                cache_key TEXT PRIMARY KEY,
+                price REAL
+            )
+        ''')
+
+_init_cache_db()
 binance_ex = ccxt.binance({'enableRateLimit': False, 'timeout': 10000})
 bybit_ex = ccxt.bybit({'enableRateLimit': False, 'timeout': 10000})
 okx_ex = ccxt.okx({'enableRateLimit': False, 'timeout': 10000})
@@ -67,6 +88,13 @@ def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
     Descarga todo el rango histórico en bloques para evitar hacer peticiones individuales.
     """
     try:
+        cache_key = f"{symbol}_{start_time.timestamp()}_{end_time.timestamp()}_{timeframe}"
+        with sqlite3.connect(CACHE_DB) as conn:
+            cursor = conn.execute('SELECT data FROM ohlcv_cache WHERE cache_key = ?', (cache_key,))
+            row = cursor.fetchone()
+            if row:
+                return pickle.loads(row[0])
+
         since_ms = int(start_time.timestamp() * 1000)
         end_ms = int(end_time.timestamp() * 1000)
         
@@ -119,6 +147,11 @@ def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
         
         # Limpiar duplicados por si acaso
         df = df.drop_duplicates(subset=['timestamp']).reset_index(drop=True)
+        
+        # Guardar en caché
+        with sqlite3.connect(CACHE_DB) as conn:
+            conn.execute('INSERT OR REPLACE INTO ohlcv_cache (cache_key, data) VALUES (?, ?)', (cache_key, pickle.dumps(df)))
+            
         return df
         
     except Exception as e:
@@ -131,21 +164,35 @@ def get_historical_price(symbol, timestamp):
     Ideal para calcular equivalencias USD de PnL en contratos COIN-M.
     """
     try:
+        cache_key = f"{symbol}_{timestamp.timestamp()}"
+        with sqlite3.connect(CACHE_DB) as conn:
+            cursor = conn.execute('SELECT price FROM price_cache WHERE cache_key = ?', (cache_key,))
+            row = cursor.fetchone()
+            if row:
+                return row[0]
+
         since_ms = int(timestamp.timestamp() * 1000) - 60000 # 1 minute before
         
         clean_symbol = symbol.replace('USD', 'USDT')
         if '/' not in clean_symbol:
             clean_symbol = clean_symbol.replace('USDT', '/USDT')
             
-        try:
-            ohlcv = exchange.fetch_ohlcv(clean_symbol, '1m', since=since_ms, limit=2)
-        except:
-            return None
+        ohlcv = None
+        for ex in GLOBAL_EXCHANGES:
+            try:
+                ohlcv = ex.fetch_ohlcv(clean_symbol, '1m', since=since_ms, limit=2)
+                if ohlcv and len(ohlcv) > 0:
+                    break
+            except:
+                continue
             
         if ohlcv and len(ohlcv) > 0:
             # ohlcv[0] is [timestamp, open, high, low, close, volume]
             # ohlcv[-1] ensures we get the closest to the target time
-            return float(ohlcv[-1][4]) # close price
+            price = float(ohlcv[-1][4]) # close price
+            with sqlite3.connect(CACHE_DB) as conn:
+                conn.execute('INSERT OR REPLACE INTO price_cache (cache_key, price) VALUES (?, ?)', (cache_key, price))
+            return price
         return None
     except Exception as e:
         print(f"Error fetching historical price for {symbol}: {e}")
