@@ -87,14 +87,16 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
     df['true_pnl_pct'] = df['true_pnl_pct'].fillna(0.0)
     
     # Recalcular el PNL absoluto matemáticamente (independiente del exchange)
-    # Solo aplicable de forma directa a contratos Lineales (USDT-M)
     calc_long_pnl = (exit - safe_entry) * df['size']
     calc_short_pnl = (safe_entry - exit) * df['size']
-    calculated_linear_pnl = np.where(is_long, calc_long_pnl, calc_short_pnl).astype(float)
+    calculated_pnl = np.where(is_long, calc_long_pnl, calc_short_pnl).astype(float)
     
-    # Para COIN-M, los contratos son inversos y dependen del tamaño del contrato (ej. 10 USD).
-    # Por lo tanto, confiamos en el reported_pnl original para COIN-M, y sobreescribimos solo USDT-M.
-    df['reported_pnl'] = np.where(is_usdt, calculated_linear_pnl, df['reported_pnl'])
+    # Reemplazar PNL reportado si el exchange falló y reportó 0, siempre que tengamos un tamaño válido
+    df['reported_pnl'] = np.where((df['reported_pnl'] == 0) & (df['size'] > 0), calculated_pnl, df['reported_pnl'])
+    
+    # Forzar sobreescritura para USDT-M para máxima precisión matemática
+    df['reported_pnl'] = np.where(is_usdt & (df['size'] > 0), calculated_pnl, df['reported_pnl'])
+    
     df['reported_pnl'] = df['reported_pnl'].fillna(0.0)
     
     # Fetch historical prices for COIN-M USD conversion (Bulk Vectorized)
