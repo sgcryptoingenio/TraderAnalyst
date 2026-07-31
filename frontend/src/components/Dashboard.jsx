@@ -27,6 +27,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
   const [marketDataError, setMarketDataError] = useState(null);
   const [brushStartIdx, setBrushStartIdx] = useState(0);
   const [brushEndIdx, setBrushEndIdx] = useState(null);
+  const [isZoomed, setIsZoomed] = useState(false);
   
   const brushTimeoutRef = useRef(null);
 
@@ -449,6 +450,23 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
               <h3 style={{marginBottom: '4px'}}>Curva de Consistencia (PNL USD)</h3>
               <p className="metric-subtitle" style={{textAlign: 'left', margin: 0}}>Usa el slider inferior para hacer zoom en el período que deseas analizar</p>
             </div>
+            {isZoomed && (
+              <button 
+                onClick={() => {
+                  setIsZoomed(false);
+                  setBrushStartIdx(0);
+                  setBrushEndIdx(null);
+                  if (onTimeRangeChange) {
+                    if (brushTimeoutRef.current) clearTimeout(brushTimeoutRef.current);
+                    onTimeRangeChange(null, null);
+                  }
+                }}
+                className="nav-btn" 
+                style={{fontSize: '0.8rem', padding: '6px 12px', background: 'var(--card-hover-bg)'}}
+              >
+                Restablecer Zoom
+              </button>
+            )}
           </div>
           <ResponsiveContainer width="100%" height="90%">
             <AreaChart data={displayEquityCurve} margin={{ top: 10, right: 30, left: 0, bottom: 30 }}>
@@ -491,7 +509,10 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
                     setBrushStartIdx(range.startIndex);
                     setBrushEndIdx(range.endIndex);
                     
-                    if (onTimeRangeChange) {
+                    const isFullRange = range.startIndex === 0 && range.endIndex === metrics.equity_curve.length - 1;
+                    
+                    if (onTimeRangeChange && !isFullRange) {
+                      setIsZoomed(true);
                       if (brushTimeoutRef.current) {
                         clearTimeout(brushTimeoutRef.current);
                       }
