@@ -69,8 +69,7 @@ const MentorDashboard = ({ token, onReportSelect }) => {
   
   const copyInviteCode = () => {
     const link = `${window.location.origin}/?ref=${profile.invite_code}`;
-    const text = `¡Únete a mi academia en Sabueso!\n\nHaz clic en este enlace para registrarte automáticamente:\n${link}`;
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(link);
     alert('¡Enlace de invitación copiado al portapapeles!');
   };
 
