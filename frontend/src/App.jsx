@@ -26,6 +26,7 @@ function App() {
   const [showSecurityModal, setShowSecurityModal] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
   const [loadingText, setLoadingText] = useState('Analizando patrones matemáticos...');
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const inputRef = useRef(null);
   
   const [activeFilters, setActiveFilters] = useState({
@@ -50,7 +51,9 @@ function App() {
 
   useEffect(() => {
     let interval;
+    let progressInterval;
     if (loading) {
+      setLoadingProgress(0);
       const messages = [
         "Procesando archivo e identificando columnas...",
         "Calculando PnL Real y Estadísticas...",
@@ -61,12 +64,29 @@ function App() {
       ];
       let i = 0;
       setLoadingText(messages[0]);
+      
       interval = setInterval(() => {
-        i = (i + 1) % messages.length;
-        setLoadingText(messages[i]);
-      }, 1500);
+        i = (i + 1);
+        if (i < messages.length) {
+          setLoadingText(messages[i]);
+        } else {
+          i = 0;
+          setLoadingText(messages[i]);
+        }
+      }, 2000);
+
+      progressInterval = setInterval(() => {
+        setLoadingProgress(prev => {
+          if (prev >= 95) return prev;
+          const increment = Math.max(0.5, (95 - prev) * 0.05);
+          return prev + increment;
+        });
+      }, 200);
     }
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearInterval(progressInterval);
+    };
   }, [loading]);
 
   const handleLogin = (newToken, newUsername, newRole) => {
@@ -282,11 +302,27 @@ function App() {
 
       {loading && (
         <div className="loading-overlay glass-card">
-          <div className="sabueso-loader">
-            <div className="radar"></div>
-            <div className="magnifier" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Search size={20} color="var(--primary)" /></div>
+          <div className="loader-container">
+            <div className="sabueso-loader-new">
+              <div className="candlestick-anim">
+                <div className="candle up c1"></div>
+                <div className="candle down c2"></div>
+                <div className="candle up c3"></div>
+                <div className="candle up c4"></div>
+                <div className="candle down c5"></div>
+              </div>
+            </div>
+            
+            <div className="loading-status">
+              <h3 className="loading-text">{loadingText}</h3>
+              <div className="progress-bar-container">
+                <div className="progress-bar-fill" style={{ width: `${Math.round(loadingProgress)}%` }}>
+                  <div className="progress-glow"></div>
+                </div>
+              </div>
+              <div className="progress-percentage">{Math.round(loadingProgress)}%</div>
+            </div>
           </div>
-          <h3 className="loading-text">{loadingText}</h3>
         </div>
       )}
 
