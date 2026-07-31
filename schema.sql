@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS reports (
     avg_win_amt REAL,
     avg_loss_amt REAL,
     total_pnl REAL,
+    total_fees REAL DEFAULT 0,
     risk_reward_ratio REAL,
     full_data TEXT,
     file_path TEXT,
@@ -45,7 +46,8 @@ CREATE TABLE IF NOT EXISTS trades (
     entry_price REAL,
     exit_price REAL,
     size REAL,
-    reported_pnl REAL
+    reported_pnl REAL,
+    fee REAL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS settings (

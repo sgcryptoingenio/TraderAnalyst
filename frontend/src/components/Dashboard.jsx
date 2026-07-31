@@ -58,7 +58,9 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
   }, [active_symbol, metrics]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/settings`)
+    fetch(`${API_BASE}/api/settings`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    })
       .then(res => res.json())
       .then(d => setMentorshipLink(d.mentorship_link || ''))
       .catch(err => console.error(err));
@@ -283,6 +285,15 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
             <span className="text-loss"> {metrics.avg_loss_pct} (${metrics.avg_loss_amt_usd})</span>
           </div>
           <div className="metric-subtitle" style={{marginTop: '10px', fontWeight: 'bold', color: 'var(--text-primary)'}}>Total PNL: <span className={parseFloat(metrics.total_pnl_usd) >= 0 ? 'text-win' : 'text-loss'}>${metrics.total_pnl_usd}</span></div>
+          {metrics.fees_included ? (
+            <div className="metric-subtitle" style={{marginTop: '5px', fontSize: '0.85rem', color: 'var(--text-secondary)'}}>
+              Comisiones (Fees): <span className="text-loss">-${Math.abs(parseFloat(metrics.total_fees_usd || 0)).toFixed(2)}</span>
+            </div>
+          ) : (
+            <div className="metric-subtitle" style={{marginTop: '5px', fontSize: '0.75rem', color: 'var(--loss-color)', fontStyle: 'italic'}}>
+              * PnL Bruto (no incluye comisiones).
+            </div>
+          )}
         </div>
 
         {/* DIRECCIÓN */}

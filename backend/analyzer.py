@@ -86,6 +86,17 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
     df['true_pnl_pct'] = np.where(is_usdt, price_diff_pct * 100.0, coin_diff_pct * 100.0)
     df['true_pnl_pct'] = df['true_pnl_pct'].fillna(0.0)
     
+    # Recalcular el PNL absoluto matemáticamente (independiente del exchange)
+    # Solo aplicable de forma directa a contratos Lineales (USDT-M)
+    calc_long_pnl = (exit - safe_entry) * df['size']
+    calc_short_pnl = (safe_entry - exit) * df['size']
+    calculated_linear_pnl = np.where(is_long, calc_long_pnl, calc_short_pnl).astype(float)
+    
+    # Para COIN-M, los contratos son inversos y dependen del tamaño del contrato (ej. 10 USD).
+    # Por lo tanto, confiamos en el reported_pnl original para COIN-M, y sobreescribimos solo USDT-M.
+    df['reported_pnl'] = np.where(is_usdt, calculated_linear_pnl, df['reported_pnl'])
+    df['reported_pnl'] = df['reported_pnl'].fillna(0.0)
+    
     # Fetch historical prices for COIN-M USD conversion (Bulk Vectorized)
     df['pnl_usd'] = df['reported_pnl'] # Predeterminado para USDT-M
     
@@ -430,6 +441,10 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
         'smc_hits':         strategy_scores.get('SMC / Liquidaci\u00f3n (Rechazo)', 0),
     }
 
+    # Calculate fees
+    total_fees = df['fee'].sum() if 'fee' in df.columns else 0.0
+    fees_included = 'fee' in df.columns and (df['fee'] != 0).any()
+
     return {
         'available_symbols': available_symbols,
         'total_trades': len(df),
@@ -442,6 +457,8 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
         'avg_loss_amt_usd': f"{avg_loss_amt:.2f}",
         'total_pnl_base': f"{total_pnl:.6f}",
         'total_pnl_usd': f"{total_pnl_usd:.2f}",
+        'total_fees_usd': f"{total_fees:.2f}",
+        'fees_included': bool(fees_included),
         'risk_reward_ratio': f"{risk_reward:.2f}",
         'avg_duration': avg_duration_str,
         'long_preference': f"{long_rate * 100:.0f}% Longs / {(1-long_rate) * 100:.0f}% Shorts",

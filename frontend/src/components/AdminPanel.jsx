@@ -86,11 +86,27 @@ const AdminPanel = ({ token }) => {
     } catch (err) { alert(err.message); }
   };
 
-  const handleToggleRole = async (userId) => {
-    if (!window.confirm("¿Estás seguro de cambiar el rol de este usuario?")) return;
+  const handleChangeRole = async (userId, newRole) => {
+    let inviteCode = null;
+    if (newRole === 'mentor') {
+      inviteCode = window.prompt("Ingresa el CÓDIGO DE ACADEMIA para este nuevo mentor (Ej: ALFA2026):");
+      if (!inviteCode) {
+        alert("El código de academia es obligatorio para el rol mentor.");
+        fetchAdminData(); // Reset the select visually
+        return;
+      }
+    }
+
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}/role`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } });
-      if (!res.ok) throw new Error('Error al cambiar rol');
+      const res = await fetch(`${API_BASE}/api/admin/users/${userId}/role`, { 
+        method: 'PUT', 
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole, invite_code: inviteCode })
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || 'Error al cambiar rol');
+      }
       fetchAdminData();
     } catch (err) { alert(err.message); }
   };
@@ -124,16 +140,25 @@ const AdminPanel = ({ token }) => {
           <div className="table-container">
             <table>
               <thead>
-                <tr><th>ID</th><th>Usuario</th><th>Rol</th><th>Fecha de Registro</th><th>Acciones</th></tr>
+                <tr><th>ID</th><th>Usuario</th><th>Rol</th><th>Cód. Academia</th><th>Fecha de Registro</th><th>Acciones</th></tr>
               </thead>
               <tbody>
                 {users.map(u => (
                   <tr key={u.id}>
                     <td>{u.id}</td><td>{u.username}</td>
-                    <td style={{color: u.role==='admin'?'#f39c12':'#fff'}}>{u.role}</td>
+                    <td style={{color: u.role==='admin'?'#f39c12':u.role==='mentor'?'#10b981':'#fff'}}>{u.role}</td>
+                    <td>{u.invite_code || '-'}</td>
                     <td>{new Date(u.created_at).toLocaleString()}</td>
                     <td>
-                      <button onClick={()=>handleToggleRole(u.id)} style={{marginRight:'10px', background: u.role==='admin'?'#444':'#f39c12', color:'#fff', padding:'5px 10px', border:'none', borderRadius:'4px'}}>{u.role==='admin'?'Degradar':'Ascender Admin'}</button>
+                      <select 
+                        value={u.role} 
+                        onChange={(e) => handleChangeRole(u.id, e.target.value)}
+                        style={{marginRight:'10px', background: '#333', color:'#fff', padding:'5px', border:'none', borderRadius:'4px'}}
+                      >
+                        <option value="user">Usuario</option>
+                        <option value="mentor">Mentor</option>
+                        <option value="admin">Admin</option>
+                      </select>
                       <button onClick={()=>handleDeleteUser(u.id)} style={{background:'var(--loss-color)', color:'#fff', padding:'5px 10px', border:'none', borderRadius:'4px'}}>Eliminar</button>
                     </td>
                   </tr>

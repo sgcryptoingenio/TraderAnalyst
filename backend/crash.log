@@ -56,7 +56,7 @@ Traceback (most recent call last):
   File "C:\Users\santiagogiraldogutie\.gemini\antigravity\scratch\TraderScanner\backend\venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 1033, in run
     result = context.run(func, *args)
   File "C:\Users\santiagogiraldogutie\Desktop\desarrollos con IA\Antigravity\Analista\trading analist\backend\main.py", line 92, in register
-    hashed_password = get_password_hash(user.password)
+    hashed_password = get_password_hash(user.password[:72])
   File "C:\Users\santiagogiraldogutie\Desktop\desarrollos con IA\Antigravity\Analista\trading analist\backend\auth.py", line 14, in get_password_hash
     return pwd_context.hash(password)
            ~~~~~~~~~~~~~~~~^^^^^^^^^^

@@ -147,7 +147,8 @@ def reconstruct_positions_from_trades(df):
                     'entry_price': avg_entry,
                     'exit_price': price,
                     'size': close_qty,
-                    'reported_pnl': net_pnl
+                    'reported_pnl': net_pnl,
+                    'fee': pos['accumulated_fee'] + fee
                 })
                 
                 pos['amount'] -= close_qty
@@ -177,6 +178,7 @@ def smart_parse(df):
     exit_t_col = find_column(clean_cols, ['close time', 'exit time', 'fecha salida', 'cerrado', 'closed time', 'exit_time', 'fecha/hora de cierre', 'fecha de cierre'])
     size_col = find_column(clean_cols, ['closed amount', 'size', 'closing qty', 'closed position', 'cantidad', 'qty', 'amount'])
     pnl_col = find_column(clean_cols, ['realized pnl', 'pnl', 'pnl usd', 'pnl %', 'beneficio', 'ganancia', 'profit', 'reported_pnl', 'realized_pnl', 'pnl realizado', 'beneficio obtenido'])
+    fee_col = find_column(clean_cols, ['fee', 'comisión', 'comision', 'fees'])
     
     # Required columns logic
     if not pnl_col and not exit_p_col:
@@ -231,7 +233,8 @@ def smart_parse(df):
             'entry_price': clean_numeric(row[col_map[entry_p_col]]) if entry_p_col else 0.0,
             'exit_price': clean_numeric(row[col_map[exit_p_col]]) if exit_p_col else 0.0,
             'size': clean_numeric(row[col_map[size_col]]) if size_col else 0.0,
-            'reported_pnl': clean_numeric(row[col_map[pnl_col]]) if pnl_col else 0.0
+            'reported_pnl': clean_numeric(row[col_map[pnl_col]]) if pnl_col else 0.0,
+            'fee': clean_numeric(row[col_map[fee_col]]) if fee_col else 0.0
         })
         
     return pd.DataFrame(standard_data)
@@ -279,8 +282,8 @@ def ingest_file(file_path, db_conn=None, user_id=None, original_filename=None):
                         x_time = exit_t.isoformat() if pd.notna(exit_t) and hasattr(exit_t, 'isoformat') else None
                         
                         cursor.execute("""
-                            INSERT INTO trades (session_id, symbol, contract_type, side, entry_time, exit_time, entry_price, exit_price, size, reported_pnl)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO trades (session_id, symbol, contract_type, side, entry_time, exit_time, entry_price, exit_price, size, reported_pnl, fee)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
                             session_id,
                             str(row.get('symbol', '')),
@@ -291,7 +294,8 @@ def ingest_file(file_path, db_conn=None, user_id=None, original_filename=None):
                             float(row.get('entry_price', 0.0) or 0.0),
                             float(row.get('exit_price', 0.0) or 0.0),
                             float(row.get('size', 0.0) or 0.0),
-                            float(row.get('reported_pnl', 0.0) or 0.0)
+                            float(row.get('reported_pnl', 0.0) or 0.0),
+                            float(row.get('fee', 0.0) or 0.0)
                         ))
                 
                 db_conn.commit()

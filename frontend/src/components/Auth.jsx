@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import API_BASE from '../api';
 
 const Auth = ({ onLogin }) => {
@@ -9,6 +9,17 @@ const Auth = ({ onLogin }) => {
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [inviteCodeFromUrl, setInviteCodeFromUrl] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      setInviteCode(ref);
+      setInviteCodeFromUrl(true);
+      setIsLogin(false);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,7 +60,21 @@ const Auth = ({ onLogin }) => {
         {!isLogin && (
           <>
             <input type="email" placeholder="Correo Electrónico" value={email} onChange={e=>setEmail(e.target.value)} required style={{padding: '10px', borderRadius: '5px', border: '1px solid #333', background: '#222', color: '#fff'}} />
-            <input type="text" placeholder="Código de Academia (Opcional)" value={inviteCode} onChange={e=>setInviteCode(e.target.value)} style={{padding: '10px', borderRadius: '5px', border: '1px solid #333', background: '#222', color: '#fff'}} />
+            <input 
+              type="text" 
+              placeholder="Código de Academia (Opcional)" 
+              value={inviteCode} 
+              onChange={e=>setInviteCode(e.target.value)} 
+              readOnly={inviteCodeFromUrl}
+              style={{
+                padding: '10px', 
+                borderRadius: '5px', 
+                border: '1px solid #333', 
+                background: inviteCodeFromUrl ? '#111' : '#222', 
+                color: inviteCodeFromUrl ? 'var(--primary)' : '#fff',
+                fontWeight: inviteCodeFromUrl ? 'bold' : 'normal'
+              }} 
+            />
           </>
         )}
         <input type="password" placeholder="Contraseña" value={password} onChange={e=>setPassword(e.target.value)} required style={{padding: '10px', borderRadius: '5px', border: '1px solid #333', background: '#222', color: '#fff'}} />

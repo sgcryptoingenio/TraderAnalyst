@@ -89,7 +89,7 @@ def register(user: UserAuth, db = Depends(get_db)):
         mentor_id = mentor['id']
     
     role = 'admin' if user.username.lower() in ['admin', 'profesor'] else 'user'
-    hashed_password = get_password_hash(user.password)
+    hashed_password = get_password_hash(user.password[:72])
     
     cursor.execute(
         "INSERT INTO users (username, password_hash, role, email, mentor_id) VALUES (?, ?, ?, ?, ?)", 
@@ -106,7 +106,7 @@ def login(user: UserAuth, db = Depends(get_db)):
     cursor.execute("SELECT id, password_hash, role, mentor_id FROM users WHERE username = ?", (user.username,))
     db_user = cursor.fetchone()
     
-    if not db_user or not verify_password(user.password, db_user["password_hash"]):
+    if not db_user or not verify_password(user.password[:72], db_user["password_hash"]):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
     access_token = create_access_token(data={
@@ -228,19 +228,14 @@ def get_all_reports(admin_payload: dict = Depends(require_admin), db = Depends(g
     conn = db
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT r.*, u.username 
+        SELECT r.id, r.user_id, r.filename, r.exchange, r.total_trades, r.win_rate, r.total_pnl, r.upload_time, u.username 
         FROM reports r 
         JOIN users u ON r.user_id = u.id 
         ORDER BY r.upload_time DESC
     """)
     rows = cursor.fetchall()
     
-    reports_list = []
-    for row in rows:
-        r = dict(row)
-        r['full_data'] = json.loads(r['full_data']) if r['full_data'] else {}
-        reports_list.append(r)
-    return {"success": True, "reports": reports_list}
+    return {"success": True, "reports": [dict(row) for row in rows]}
 
 @app.get("/api/analyze")
 async def get_analysis(
@@ -279,8 +274,12 @@ async def get_analysis(
         
     if 'entry_time' in df.columns:
         df['entry_time'] = pd.to_datetime(df['entry_time'], errors='coerce')
+        if hasattr(df['entry_time'].dt, 'tz') and df['entry_time'].dt.tz is not None:
+            df['entry_time'] = df['entry_time'].dt.tz_localize(None)
     if 'exit_time' in df.columns:
         df['exit_time'] = pd.to_datetime(df['exit_time'], errors='coerce')
+        if hasattr(df['exit_time'].dt, 'tz') and df['exit_time'].dt.tz is not None:
+            df['exit_time'] = df['exit_time'].dt.tz_localize(None)
         df = df.dropna(subset=['exit_time'])
         
     metrics = await analyze_trades(df, target_symbol, timeframe)
@@ -371,6 +370,8 @@ async def analyze_history(
         else:
             df = await run_in_threadpool(ingest_file, temp_file_path)
             
+        if 'entry_time' in df.columns and hasattr(df['entry_time'].dt, 'tz') and df['entry_time'].dt.tz is not None:
+            df['entry_time'] = df['entry_time'].dt.tz_localize(None)
         if 'exit_time' in df.columns and hasattr(df['exit_time'].dt, 'tz') and df['exit_time'].dt.tz is not None:
             df['exit_time'] = df['exit_time'].dt.tz_localize(None)
             
@@ -406,8 +407,8 @@ async def analyze_history(
                 return float(val or 0)
 
             cursor.execute("""
-                INSERT INTO reports (user_id, filename, exchange, total_trades, win_rate, avg_win_amt, avg_loss_amt, total_pnl, risk_reward_ratio, full_data, file_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO reports (user_id, filename, exchange, total_trades, win_rate, avg_win_amt, avg_loss_amt, total_pnl, total_fees, risk_reward_ratio, full_data, file_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 user_id, 
                 file.filename, 
@@ -417,6 +418,7 @@ async def analyze_history(
                 clean_metric(metrics.get('avg_win_amt_usd', 0)),
                 clean_metric(metrics.get('avg_loss_amt_usd', 0)),
                 clean_metric(metrics.get('total_pnl_usd', 0)),
+                clean_metric(metrics.get('total_fees_usd', 0)),
                 clean_metric(metrics.get('risk_reward_ratio', 0)),
                 json.dumps(jsonable_encoder(metrics)),
                 perm_file_path
@@ -513,46 +515,108 @@ async def admin_delete_user(target_id: int, user_id: int = Depends(get_current_u
     
     return {"success": True}
 
+class RoleUpdate(BaseModel):
+    role: str
+    invite_code: Optional[str] = None
+
 @app.put("/api/admin/users/{target_id}/role")
-async def change_user_role(target_id: int, user_id: int = Depends(get_current_user), db = Depends(get_db)):
+async def change_user_role(target_id: int, role_data: RoleUpdate, user_id: int = Depends(get_current_user), db = Depends(get_db)):
     conn = db
     cursor = conn.cursor()
     # Check if admin
     cursor.execute("SELECT role FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
     if not user or user['role'] != 'admin':
-
         raise HTTPException(status_code=403, detail="Acceso denegado")
 
     if target_id == user_id:
-
         raise HTTPException(status_code=400, detail="No puedes cambiar tu propio rol")
 
     cursor.execute("SELECT role FROM users WHERE id = ?", (target_id,))
     target = cursor.fetchone()
     if not target:
-
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-    new_role = 'admin' if target['role'] == 'user' else 'user'
-    
-    cursor.execute("UPDATE users SET role = ? WHERE id = ?", (new_role, target_id))
+    new_role = role_data.role
+    if new_role not in ['user', 'admin', 'mentor']:
+        raise HTTPException(status_code=400, detail="Rol inválido")
+        
+    if new_role == 'mentor':
+        if not role_data.invite_code:
+            raise HTTPException(status_code=400, detail="Se requiere un código de invitación para el mentor")
+        # Check if code is already taken by someone else
+        cursor.execute("SELECT id FROM users WHERE invite_code = ? AND id != ?", (role_data.invite_code, target_id))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="El código de invitación ya está en uso")
+            
+        cursor.execute("UPDATE users SET role = ?, invite_code = ? WHERE id = ?", (new_role, role_data.invite_code, target_id))
+    else:
+        cursor.execute("UPDATE users SET role = ?, invite_code = NULL WHERE id = ?", (new_role, target_id))
+        
     conn.commit()
-    
-    
     return {"success": True, "new_role": new_role}
 
 class SettingsUpdate(BaseModel):
     mentorship_link: str
 
+def get_current_user_optional(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization.split(" ")[1]
+    payload = decode_access_token(token)
+    if not payload:
+        return None
+    return payload
+
 @app.get("/api/settings")
-def get_settings(db = Depends(get_db)):
+def get_settings(user_payload: Optional[dict] = Depends(get_current_user_optional), db = Depends(get_db)):
     conn = db
     cursor = conn.cursor()
+    
+    # Si hay usuario, vemos si tiene un mentor o si es mentor
+    if user_payload:
+        mentor_id = user_payload.get("mentor_id")
+        user_id = user_payload.get("sub")
+        role = user_payload.get("role")
+        
+        target_mentor = mentor_id
+        if role == 'mentor':
+            target_mentor = user_id
+            
+        if target_mentor:
+            cursor.execute("SELECT help_link FROM users WHERE id = ?", (target_mentor,))
+            mentor = cursor.fetchone()
+            if mentor and mentor["help_link"]:
+                return {"success": True, "mentorship_link": mentor["help_link"]}
+                
+    # Fallback to global admin settings
     cursor.execute("SELECT value FROM settings WHERE key = 'mentorship_link'")
     row = cursor.fetchone()
     
     return {"success": True, "mentorship_link": row["value"] if row else ""}
+
+class MentorProfileUpdate(BaseModel):
+    help_link: str
+
+@app.get("/api/mentor/profile")
+def get_mentor_profile(mentor_payload: dict = Depends(require_mentor), db = Depends(get_db)):
+    conn = db
+    cursor = conn.cursor()
+    mentor_id = int(mentor_payload["sub"])
+    cursor.execute("SELECT invite_code, help_link FROM users WHERE id = ?", (mentor_id,))
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Perfil no encontrado")
+    return {"success": True, "invite_code": row["invite_code"], "help_link": row["help_link"] or ""}
+
+@app.put("/api/mentor/profile")
+def update_mentor_profile(profile: MentorProfileUpdate, mentor_payload: dict = Depends(require_mentor), db = Depends(get_db)):
+    conn = db
+    cursor = conn.cursor()
+    mentor_id = int(mentor_payload["sub"])
+    cursor.execute("UPDATE users SET help_link = ? WHERE id = ?", (profile.help_link, mentor_id))
+    conn.commit()
+    return {"success": True}
 
 @app.put("/api/admin/settings")
 def update_settings(settings: SettingsUpdate, admin_payload: dict = Depends(require_admin), db = Depends(get_db)):
