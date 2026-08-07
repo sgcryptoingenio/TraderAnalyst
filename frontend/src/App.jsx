@@ -2,12 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import ErrorBoundary from './components/ErrorBoundary';
 import Auth from './components/Auth';
-import History from './components/History';
+import Profile from './components/Profile';
 import AdminPanel from './components/AdminPanel';
 import MentorDashboard from './components/MentorDashboard';
 import ChangePasswordModal from './components/ChangePasswordModal';
 import Landing from './components/Landing';
-import { Lock, Moon, Sun, UploadCloud, Search } from 'lucide-react';
+import { Lock, Moon, Sun, UploadCloud, Search, User } from 'lucide-react';
 import API_BASE from './api';
 import './index.css';
 
@@ -15,7 +15,7 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [username, setUsername] = useState(localStorage.getItem('username') || null);
   const [role, setRole] = useState(localStorage.getItem('role') || 'user');
-  const [view, setView] = useState('upload'); // 'upload', 'dashboard', 'history', 'admin', 'mentor'
+  const [view, setView] = useState('upload'); // 'upload', 'dashboard', 'profile', 'admin', 'mentor'
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -243,8 +243,11 @@ function App() {
             {role === 'admin' && <span style={{color: '#f59e0b', marginLeft: '5px'}}>(Admin)</span>}
             {(role === 'mentor') && <span style={{color: '#10b981', marginLeft: '5px'}}>(Mentor)</span>}
           </span>
-          <button onClick={() => setView('upload')} className="nav-btn">Auditar</button>
-          <button onClick={() => setView('history')} className="nav-btn">Historial</button>
+          <button onClick={() => setView('upload')} className={`nav-btn ${view === 'upload' ? 'active' : ''}`}>Auditar</button>
+          <button onClick={() => setView('profile')} className={`nav-btn ${view === 'profile' ? 'active' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <User size={18} />
+            Mi Perfil
+          </button>
           {role === 'mentor' && (
             <button onClick={() => setView('mentor')} className="nav-btn" style={{color: '#10b981', borderColor: '#10b981'}}>Mentor</button>
           )}
@@ -265,7 +268,7 @@ function App() {
         <ChangePasswordModal token={token} onClose={() => setShowSecurityModal(false)} />
       )}
 
-      {view === 'history' && <History token={token} onReportSelect={(sessionId) => handleLoadSession(sessionId)} />}
+      {view === 'profile' && token && <Profile token={token} onReportSelect={(sessionId) => handleLoadSession(sessionId)} />}
       {view === 'admin' && <AdminPanel token={token} />}
       {view === 'mentor' && <MentorDashboard token={token} onReportSelect={(sessionId) => handleLoadSession(sessionId)} />}
 

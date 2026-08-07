@@ -193,15 +193,40 @@ def change_password(
     
     return {"success": True, "message": "Contraseña actualizada exitosamente"}
 
-@app.get("/api/history")
-def get_history(user_id: int = Depends(get_current_user), db = Depends(get_db)):
+class ProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    photo_data: Optional[str] = None
+
+@app.get("/api/profile")
+def get_profile(user_id: int = Depends(get_current_user), db = Depends(get_db)):
     conn = db
     cursor = conn.cursor()
-    cursor.execute("SELECT id, filename, exchange, total_trades, win_rate, total_pnl, upload_time FROM reports WHERE user_id = ? ORDER BY upload_time DESC", (user_id,))
-    rows = cursor.fetchall()
     
+    # Get user details
+    cursor.execute("SELECT username, email, role, name, photo_data FROM users WHERE id = ?", (user_id,))
+    user = cursor.fetchone()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+    # Get last 10 reports
+    cursor.execute("SELECT id, filename, exchange, total_trades, win_rate, total_pnl, upload_time FROM reports WHERE user_id = ? ORDER BY upload_time DESC LIMIT 10", (user_id,))
+    rows = cursor.fetchall()
     reports = [dict(row) for row in rows]
-    return {"success": True, "reports": reports}
+    
+    return {
+        "success": True, 
+        "profile": dict(user),
+        "reports": reports
+    }
+
+@app.put("/api/profile")
+def update_profile(data: ProfileUpdate, user_id: int = Depends(get_current_user), db = Depends(get_db)):
+    conn = db
+    cursor = conn.cursor()
+    
+    cursor.execute("UPDATE users SET name = ?, photo_data = ? WHERE id = ?", (data.name, data.photo_data, user_id))
+    conn.commit()
+    return {"success": True, "message": "Perfil actualizado exitosamente"}
 
 def require_admin(authorization: str = Header(None), token: str = None):
     if not authorization and not token:
@@ -476,6 +501,22 @@ async def analyze_history(
             ))
             
             conn.commit()
+            
+            # Limitar a 10 reportes por usuario
+            cursor.execute("SELECT id, file_path FROM reports WHERE user_id = ? ORDER BY upload_time DESC LIMIT -1 OFFSET 10", (user_id,))
+            old_reports = cursor.fetchall()
+            for old_rep in old_reports:
+                old_id = old_rep['id']
+                old_fp = old_rep['file_path']
+                if old_fp and os.path.exists(old_fp):
+                    try:
+                        os.remove(old_fp)
+                    except:
+                        pass
+                cursor.execute("DELETE FROM reports WHERE id = ?", (old_id,))
+            
+            if old_reports:
+                conn.commit()
     
 
         return {

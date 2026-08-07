@@ -101,6 +101,16 @@ def init_db():
             cursor.execute("ALTER TABLE users ADD COLUMN help_link TEXT")
         except sqlite3.OperationalError:
             pass
+            
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN name TEXT")
+        except sqlite3.OperationalError:
+            pass
+            
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN photo_data TEXT")
+        except sqlite3.OperationalError:
+            pass
         
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS reports (
