@@ -43,6 +43,11 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
     if target_symbol and target_symbol in available_symbols:
         df = df[df['symbol'] == target_symbol].copy()
         
+    # Agresivo cast a numérico para evitar errores str - str
+    for col in ['entry_price', 'exit_price', 'size', 'reported_pnl', 'fee']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+            
     # Convert dates early
     if 'entry_time' in df.columns:
         df['entry_time'] = pd.to_datetime(df['entry_time'], errors='coerce')

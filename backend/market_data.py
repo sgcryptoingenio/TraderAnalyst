@@ -94,7 +94,13 @@ def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
             cursor = conn.execute('SELECT data FROM ohlcv_cache WHERE cache_key = ?', (cache_key,))
             row = cursor.fetchone()
             if row:
-                return pickle.loads(row[0])
+                cached_df = pickle.loads(row[0])
+                if not cached_df.empty:
+                    cols_to_num = ['open', 'high', 'low', 'close', 'volume']
+                    existing_cols = [c for c in cols_to_num if c in cached_df.columns]
+                    if existing_cols:
+                        cached_df[existing_cols] = cached_df[existing_cols].apply(pd.to_numeric, errors='coerce')
+                return cached_df
 
         since_ms = int(start_time.timestamp() * 1000)
         end_ms = int(end_time.timestamp() * 1000)
