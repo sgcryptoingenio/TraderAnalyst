@@ -126,7 +126,7 @@ async def login(user: UserAuth, db = Depends(get_db)):
 
 @app.post("/api/auth/google")
 async def google_auth(auth: GoogleAuth, db = Depends(get_db)):
-    user_info = verify_google_token(auth.credential)
+    user_info = await run_in_threadpool(verify_google_token, auth.credential)
     if not user_info:
         raise HTTPException(status_code=401, detail="Token de Google inválido")
         
