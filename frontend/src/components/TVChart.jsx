@@ -81,6 +81,15 @@ const TVChart = ({ marketData }) => {
       });
 
       console.log("[TVChart] Asignando datos a las series. cData len:", cData.length);
+      
+      cData.sort((a, b) => a.time - b.time);
+      ema9Data.sort((a, b) => a.time - b.time);
+      ema21Data.sort((a, b) => a.time - b.time);
+      rsiData.sort((a, b) => a.time - b.time);
+      macdData.sort((a, b) => a.time - b.time);
+      macdSignalData.sort((a, b) => a.time - b.time);
+      macdHistData.sort((a, b) => a.time - b.time);
+
       candleSeries.setData(cData);
       ema9Series.setData(ema9Data);
       ema21Series.setData(ema21Data);

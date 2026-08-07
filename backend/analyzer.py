@@ -311,6 +311,7 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
             
             if not market_df.empty:
                 market_df = compute_indicators(market_df)
+                market_df.dropna(subset=['open', 'high', 'low', 'close'], inplace=True)
                 
                 def safe_val(val):
                     return None if pd.isna(val) else float(val)
@@ -319,10 +320,10 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
                 ohlcv_data = [
                     {
                         'time': int(t.timestamp()),
-                        'open': o,
-                        'high': h,
-                        'low': l,
-                        'close': c,
+                        'open': safe_val(o),
+                        'high': safe_val(h),
+                        'low': safe_val(l),
+                        'close': safe_val(c),
                         'EMA_9': safe_val(e9),
                         'EMA_21': safe_val(e21),
                         'RSI_14': safe_val(rsi),

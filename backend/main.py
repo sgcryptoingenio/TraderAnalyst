@@ -14,7 +14,7 @@ import pandas as pd
 from ingestor import ingest_file
 from analyzer import analyze_trades
 from database import get_db
-from auth import verify_password, get_password_hash, create_access_token, decode_access_token
+from auth import verify_password, get_password_hash, create_access_token, decode_access_token, verify_google_token
 
 app = FastAPI()
 
@@ -54,6 +54,9 @@ class UserAuth(BaseModel):
     email: Optional[str] = None
     invite_code: Optional[str] = None
 
+class GoogleAuth(BaseModel):
+    credential: str
+
 class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str
@@ -73,7 +76,7 @@ def get_current_user(authorization: str = Header(None), token: str = None):
     return int(payload["sub"])
 
 @app.post("/api/register")
-def register(user: UserAuth, db = Depends(get_db)):
+async def register(user: UserAuth, db = Depends(get_db)):
     conn = db
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM users WHERE username = ?", (user.username,))
@@ -89,7 +92,7 @@ def register(user: UserAuth, db = Depends(get_db)):
         mentor_id = mentor['id']
     
     role = 'admin' if user.username.lower() in ['admin', 'profesor'] else 'user'
-    hashed_password = get_password_hash(user.password[:72])
+    hashed_password = await run_in_threadpool(get_password_hash, user.password[:72])
     
     cursor.execute(
         "INSERT INTO users (username, password_hash, role, email, mentor_id) VALUES (?, ?, ?, ?, ?)", 
@@ -100,13 +103,17 @@ def register(user: UserAuth, db = Depends(get_db)):
     return {"success": True, "message": "Usuario registrado exitosamente"}
 
 @app.post("/api/login")
-def login(user: UserAuth, db = Depends(get_db)):
+async def login(user: UserAuth, db = Depends(get_db)):
     conn = db
     cursor = conn.cursor()
     cursor.execute("SELECT id, password_hash, role, mentor_id FROM users WHERE username = ?", (user.username,))
     db_user = cursor.fetchone()
     
-    if not db_user or not verify_password(user.password[:72], db_user["password_hash"]):
+    if not db_user:
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+        
+    is_valid = await run_in_threadpool(verify_password, user.password[:72], db_user["password_hash"])
+    if not is_valid:
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
     access_token = create_access_token(data={
@@ -116,6 +123,50 @@ def login(user: UserAuth, db = Depends(get_db)):
         "mentor_id": db_user["mentor_id"]
     })
     return {"access_token": access_token, "token_type": "bearer", "username": user.username, "role": db_user["role"]}
+
+@app.post("/api/auth/google")
+async def google_auth(auth: GoogleAuth, db = Depends(get_db)):
+    user_info = verify_google_token(auth.credential)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Token de Google inválido")
+        
+    email = user_info.get("email")
+    name = user_info.get("name")
+    if not email:
+        raise HTTPException(status_code=400, detail="El token de Google no contiene email")
+        
+    conn = db
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, role, mentor_id FROM users WHERE email = ?", (email,))
+    db_user = cursor.fetchone()
+    
+    if not db_user:
+        # Create user if not exists
+        username = email.split('@')[0]
+        # Check if username is taken, append some random digits if so
+        cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+        if cursor.fetchone():
+            import random
+            username = f"{username}{random.randint(1000, 9999)}"
+            
+        hashed_password = await run_in_threadpool(get_password_hash, os.urandom(16).hex())
+        cursor.execute(
+            "INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, 'user', ?)",
+            (username, hashed_password, email)
+        )
+        conn.commit()
+        
+        cursor.execute("SELECT id, username, role, mentor_id FROM users WHERE email = ?", (email,))
+        db_user = cursor.fetchone()
+
+    access_token = create_access_token(data={
+        "sub": str(db_user["id"]),
+        "username": db_user["username"],
+        "role": db_user["role"],
+        "mentor_id": db_user["mentor_id"]
+    })
+    
+    return {"access_token": access_token, "token_type": "bearer", "username": db_user["username"], "role": db_user["role"]}
 
 @app.post("/api/change-password")
 def change_password(

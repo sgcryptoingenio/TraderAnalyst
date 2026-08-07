@@ -160,6 +160,8 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_upload_sessions_user_id ON upload_sessions(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_trades_session_id ON trades(session_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
         
         conn.commit()
         
@@ -184,6 +186,8 @@ def get_db_connection():
     else:
         conn = sqlite3.connect(DB_FILE, check_same_thread=False)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
         return conn
 
 def get_db():

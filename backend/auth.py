@@ -37,3 +37,21 @@ def decode_access_token(token: str):
     except jwt.PyJWTError as e:
         print(f"JWT Decode Error: {e}")
         return None
+
+try:
+    from google.oauth2 import id_token
+    from google.auth.transport import requests
+    GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+except ImportError:
+    id_token = None
+
+def verify_google_token(token: str):
+    if not id_token:
+        print("Google Auth no está instalado. Ejecuta: pip install google-auth")
+        return None
+    try:
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+        return idinfo
+    except ValueError as e:
+        print(f"Error verificando token de Google: {e}")
+        return None
