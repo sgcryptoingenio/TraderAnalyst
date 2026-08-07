@@ -736,12 +736,9 @@ async def analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: in
                 raise HTTPException(status_code=404, detail="El archivo original ya no está disponible y no se encontraron operaciones en la base de datos.")
             
             if 'entry_time' in df.columns:
-                df['entry_time'] = pd.to_datetime(df['entry_time'], errors='coerce')
+                df['entry_time'] = pd.to_datetime(df['entry_time'], errors='coerce', utc=True).dt.tz_localize(None)
             if 'exit_time' in df.columns:
-                df['exit_time'] = pd.to_datetime(df['exit_time'], errors='coerce')
-                
-        if 'exit_time' in df.columns and hasattr(df['exit_time'].dt, 'tz') and df['exit_time'].dt.tz is not None:
-            df['exit_time'] = df['exit_time'].dt.tz_localize(None)
+                df['exit_time'] = pd.to_datetime(df['exit_time'], errors='coerce', utc=True).dt.tz_localize(None)
 
         # Filter by date range if provided
         if req.start_time:

@@ -50,9 +50,9 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
             
     # Convert dates early
     if 'entry_time' in df.columns:
-        df['entry_time'] = pd.to_datetime(df['entry_time'], errors='coerce')
+        df['entry_time'] = pd.to_datetime(df['entry_time'], errors='coerce', utc=True).dt.tz_localize(None)
     if 'exit_time' in df.columns:
-        df['exit_time'] = pd.to_datetime(df['exit_time'], errors='coerce')
+        df['exit_time'] = pd.to_datetime(df['exit_time'], errors='coerce', utc=True).dt.tz_localize(None)
         
     # Calculate median duration early to dictate timeframe
     median_duration_secs = 0
