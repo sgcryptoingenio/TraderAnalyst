@@ -739,7 +739,6 @@ async def analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: in
                 df['entry_time'] = pd.to_datetime(df['entry_time'], errors='coerce')
             if 'exit_time' in df.columns:
                 df['exit_time'] = pd.to_datetime(df['exit_time'], errors='coerce')
-                df = df.dropna(subset=['exit_time'])
                 
         if 'exit_time' in df.columns and hasattr(df['exit_time'].dt, 'tz') and df['exit_time'].dt.tz is not None:
             df['exit_time'] = df['exit_time'].dt.tz_localize(None)
