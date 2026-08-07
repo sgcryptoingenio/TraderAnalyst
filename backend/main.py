@@ -503,7 +503,7 @@ async def analyze_history(
             conn.commit()
             
             # Limitar a 10 reportes por usuario
-            cursor.execute("SELECT id, file_path FROM reports WHERE user_id = ? ORDER BY upload_time DESC LIMIT -1 OFFSET 10", (user_id,))
+            cursor.execute("SELECT id, file_path FROM reports WHERE user_id = ? ORDER BY upload_time DESC LIMIT 1000 OFFSET 10", (user_id,))
             old_reports = cursor.fetchall()
             for old_rep in old_reports:
                 old_id = old_rep['id']
