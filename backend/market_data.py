@@ -77,6 +77,7 @@ def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
             return pd.DataFrame()
             
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df[['open', 'high', 'low', 'close', 'volume']] = df[['open', 'high', 'low', 'close', 'volume']].astype(float)
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True).dt.tz_localize(None)
         return df
     except Exception as e:
@@ -143,6 +144,7 @@ def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
             return pd.DataFrame()
             
         df = pd.DataFrame(all_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df[['open', 'high', 'low', 'close', 'volume']] = df[['open', 'high', 'low', 'close', 'volume']].astype(float)
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True).dt.tz_localize(None)
         
         # Limpiar duplicados por si acaso
