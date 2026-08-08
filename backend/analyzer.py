@@ -262,17 +262,17 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
     long_rate = len(longs) / len(df) if len(df) > 0 else 0
     
     # Top Trades
-    top_winners = df.nlargest(10, 'true_pnl_pct')[['symbol', 'side', 'true_pnl_pct', 'reported_pnl', 'exit_time']].copy()
+    top_winners = df.nlargest(10, 'reported_pnl')[['symbol', 'side', 'true_pnl_pct', 'reported_pnl', 'exit_time']].copy()
     if top_winners['exit_time'].notna().any():
         top_winners['exit_time'] = top_winners['exit_time'].apply(
-            lambda x: f"{x.year:04d}-{x.month:02d}-{x.day:02d}" if pd.notna(x) else 'N/A'
+            lambda x: pd.to_datetime(x).strftime('%Y-%m-%d %H:%M') if pd.notna(x) and str(x).strip() != '' else 'N/A'
         )
     top_winners['exit_time'] = top_winners['exit_time'].fillna('N/A')
-    
-    top_losers = df.nsmallest(10, 'true_pnl_pct')[['symbol', 'side', 'true_pnl_pct', 'reported_pnl', 'exit_time']].copy()
+
+    top_losers = df.nsmallest(10, 'reported_pnl')[['symbol', 'side', 'true_pnl_pct', 'reported_pnl', 'exit_time']].copy()
     if top_losers['exit_time'].notna().any():
         top_losers['exit_time'] = top_losers['exit_time'].apply(
-            lambda x: f"{x.year:04d}-{x.month:02d}-{x.day:02d}" if pd.notna(x) else 'N/A'
+            lambda x: pd.to_datetime(x).strftime('%Y-%m-%d %H:%M') if pd.notna(x) and str(x).strip() != '' else 'N/A'
         )
     top_losers['exit_time'] = top_losers['exit_time'].fillna('N/A')
     
