@@ -210,7 +210,12 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
     valid_pct_losses = losses[losses['true_pnl_pct'] < 0]
     avg_loss_pct = valid_pct_losses['true_pnl_pct'].mean() if not valid_pct_losses.empty else 0
     
-    risk_reward = abs(avg_win_pct / avg_loss_pct) if avg_loss_pct != 0 else float('inf')
+    if avg_loss_pct != 0:
+        risk_reward = abs(avg_win_pct / avg_loss_pct)
+        risk_reward_str = f"{risk_reward:.2f}"
+    else:
+        risk_reward = float('inf')
+        risk_reward_str = "∞" if avg_win_pct > 0 else "0.00"
     
     # Absolute amounts
     total_pnl = df['reported_pnl'].sum()
@@ -476,7 +481,7 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
         'total_pnl_usd': f"{total_pnl_usd:.2f}",
         'total_fees_usd': f"{total_fees:.2f}",
         'fees_included': bool(fees_included),
-        'risk_reward_ratio': f"{risk_reward:.2f}",
+        'risk_reward_ratio': risk_reward_str,
         'avg_duration': avg_duration_str,
         'long_preference': f"{long_rate * 100:.0f}% Longs / {(1-long_rate) * 100:.0f}% Shorts",
         'equity_curve': equity_data,
