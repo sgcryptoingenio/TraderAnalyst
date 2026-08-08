@@ -8,7 +8,7 @@ SECRET_KEY = os.getenv("SABUESO_SECRET_KEY", "sabueso_super_secret_key")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 1 week
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=4)
 
 def get_password_hash(password):
     return pwd_context.hash(password)
