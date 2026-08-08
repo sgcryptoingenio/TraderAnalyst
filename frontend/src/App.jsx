@@ -237,13 +237,13 @@ function App() {
   };
 
   if (!token) {
-    if (showLanding) {
-      return <Landing onEnterApp={() => setShowLanding(false)} />;
-    }
     return (
-      <div className="app-wrapper">
-        <Auth onLogin={handleLogin} />
-      </div>
+      <>
+        <Landing onEnterApp={() => setShowLanding(false)} />
+        {!showLanding && (
+          <Auth onLogin={handleLogin} onCancel={() => setShowLanding(true)} />
+        )}
+      </>
     );
   }
 
