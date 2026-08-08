@@ -7,12 +7,17 @@ import API_BASE from '../api';
 
 const STRATEGY_TOOLTIPS = {
   "Reversión a la media (RSI)": "Mide si compraste cuando el activo estaba sobrevendido (RSI bajo) o vendiste cuando estaba sobrecomprado (RSI alto). En el gráfico: Entradas en picos o valles extremos del RSI.",
+  "Ruptura de Bollinger": "Mide si operaste una explosión de volatilidad rompiendo las Bandas de Bollinger superior o inferior. En el gráfico: Expansión de las bandas con velas fuertes.",
+  "MACD Momentum": "Mide si entraste impulsado por un cruce fuerte o barras de histograma aceleradas en el MACD. En el gráfico: Acompañamiento del indicador de fuerza.",
   "Rebote VWAP": "Mide si tus entradas coinciden con rebotes en el Precio Promedio Ponderado por Volumen (VWAP). En el gráfico: El precio cae al VWAP y rebota a favor de tu trade.",
   "SMC / Liquidación (Rechazo)": "Smart Money Concepts: Mide si entraste tras una 'caza de stops' (mecha larga que limpia liquidez). En el gráfico: Velas con mechas muy largas rechazando una zona antes de tu entrada.",
   "Breakout de Rango (Ruptura)": "Mide si operaste una ruptura después de un periodo de consolidación. En el gráfico: Expansión fuerte de precio y volumen tras un mercado lateral.",
   "Pullback Dinámico a EMAs": "Mide si entraste en un retroceso hacia las Medias Móviles Exponenciales (EMAs) durante una tendencia. En el gráfico: Tendencia clara y el precio retrocede a la EMA 9 o 21 antes de continuar.",
   "Momentum / Volume Spikes": "Mide si entraste acompañado de un pico inusual de volumen. En el gráfico: Barras de volumen inusualmente altas acompañando tu dirección.",
-  "Fading (Caza-Reversiones)": "Mide si operaste contra la tendencia intentando atrapar el techo o el suelo exacto. En el gráfico: Entrar corto en velas verdes fuertes o largo en rojas fuertes."
+  "Fading (Caza-Reversiones)": "Mide si operaste contra la tendencia intentando atrapar el techo o el suelo exacto. En el gráfico: Entrar corto en velas verdes fuertes o largo en rojas fuertes.",
+  "EMA Crossover (9/21) Corto Plazo": "Mide si operaste a favor de un cambio de tendencia rápido impulsado por el cruce de las EMAs 9 y 21.",
+  "EMA Crossover (21/50) Medio Plazo": "Mide si entraste apoyado en un cambio estructural intermedio tras el cruce de las EMAs 21 y 50.",
+  "EMA Crossover (50/200) Largo Plazo": "Mide si te posicionaste de acuerdo a la tendencia macro, buscando el 'Cruce Dorado' o 'Cruce de la Muerte' de las EMAs 50 y 200."
 };
 
 const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange }) => {
