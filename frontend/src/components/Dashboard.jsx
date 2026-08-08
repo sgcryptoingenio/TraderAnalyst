@@ -29,6 +29,49 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
   const [brushEndIdx, setBrushEndIdx] = useState(null);
   const [isZoomed, setIsZoomed] = useState(false);
   
+  const [activeTrade, setActiveTrade] = useState(null);
+  const [tradeChartLoading, setTradeChartLoading] = useState(false);
+  
+  const handleAnalyzeTrade = async (trade) => {
+    if (!trade || !trade.entry_time || trade.entry_time === 'N/A' || trade.exit_time === 'N/A') {
+      setMarketDataError("El trade no tiene fechas de entrada y salida válidas para analizar.");
+      return;
+    }
+    setActiveTrade(trade);
+    setTradeChartLoading(true);
+    setMarketDataError(null);
+    setMarketData(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/api/trade-chart`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          symbol: trade.symbol,
+          entry_time: trade.entry_time,
+          exit_time: trade.exit_time,
+          entry_price: trade.entry_price && !isNaN(parseFloat(trade.entry_price)) ? parseFloat(trade.entry_price) : null,
+          exit_price: trade.exit_price && !isNaN(parseFloat(trade.exit_price)) ? parseFloat(trade.exit_price) : null,
+          side: trade.side,
+          reported_pnl: parseFloat(trade.reported_pnl)
+        })
+      });
+      const resData = await response.json();
+      if (resData.success) {
+        setMarketData(resData.tv_data);
+      } else {
+        setMarketDataError(resData.message || "Error cargando gráfico de la operación.");
+      }
+    } catch (err) {
+      setMarketDataError("Fallo de red al solicitar gráfico de operación.");
+    } finally {
+      setTradeChartLoading(false);
+    }
+  };
+  
   const brushTimeoutRef = useRef(null);
 
   // Derive display data to force Recharts to update when brush changes
@@ -48,15 +91,13 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
 
   useEffect(() => {
     if (active_symbol) {
-      if (metrics && metrics.tv_data) {
-        setMarketData(metrics.tv_data);
-        setMarketDataError(null);
-      } else {
-        setMarketDataError("No hay datos visuales disponibles para este par.");
-      }
+      // En lugar de cargar el chart global, limpia el modal de trade
+      setActiveTrade(null);
+      setMarketData(null);
+      setMarketDataError(null);
       setMarketDataLoading(false);
     }
-  }, [active_symbol, metrics]);
+  }, [active_symbol]);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/settings`, {
@@ -420,24 +461,68 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
         )}
       </div>
 
-      {/* TV CHART */}
-      {active_symbol && (
+      {/* TRADES DETALLADOS Y GRÁFICO */}
+      {active_symbol && metrics.all_trades && (
         <div className="glass-card" style={{ marginBottom: '30px' }}>
-          <h3 style={{marginBottom: '20px'}}>Reconstrucción Visual de Trades y Análisis Quant</h3>
-          {marketDataLoading && <div style={{padding: '40px', textAlign: 'center', color: '#a1a1aa'}}>Obteniendo velas en tiempo real y calculando indicadores... <Loader2 size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginLeft: '8px'}} /></div>}
-          {marketDataError && <div style={{padding: '40px', textAlign: 'center', color: '#ef4444'}}><AlertTriangle size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginRight: '8px'}} /> {marketDataError}</div>}
-          {!marketDataLoading && !marketDataError && marketData && marketData.ohlcv && marketData.ohlcv.length === 0 && (
-            <div style={{padding: '40px', textAlign: 'center', color: '#f5a623', background: 'rgba(245, 166, 35, 0.05)', borderRadius: '16px', border: '1px solid rgba(245, 166, 35, 0.2)'}}>
-              <AlertTriangle size={48} style={{marginBottom: '16px', color: '#f5a623'}} />
-              <h3 style={{margin: 0, color: '#f5a623'}}>Gráfico No Disponible (Limitación de Rendimiento)</h3>
-              <p style={{margin: '12px auto 0', opacity: 0.9, maxWidth: '600px', lineHeight: '1.6'}}>
-                Para asegurar el rendimiento de la aplicación, la reconstrucción visual profunda y el análisis Quant 
-                se limitan a los últimos 90 días operados en tu historial, o no se encontraron velas del activo para tus fechas seleccionadas.
-              </p>
+          <h3 style={{marginBottom: '20px'}}>Historial de Operaciones: {active_symbol}</h3>
+          <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '20px' }}>
+            <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+              <thead style={{ position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 1, boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
+                <tr>
+                  <th style={{padding: '10px 5px'}}>Fecha Entrada</th>
+                  <th style={{padding: '10px 5px'}}>Fecha Salida</th>
+                  <th style={{padding: '10px 5px'}}>Lado</th>
+                  <th style={{padding: '10px 5px'}}>PNL</th>
+                  <th style={{padding: '10px 5px'}}>Duración</th>
+                  <th style={{padding: '10px 5px'}}>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.all_trades.filter(t => t.symbol === active_symbol).map((t, idx) => {
+                  const pnlVal = parseFloat(t.reported_pnl);
+                  return (
+                    <tr key={idx} className="hoverable-row" style={{borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
+                      <td className="text-secondary" style={{padding: '10px 5px'}}>{t.entry_time}</td>
+                      <td className="text-secondary" style={{padding: '10px 5px'}}>{t.exit_time !== 'N/A' ? t.exit_time : '-'}</td>
+                      <td style={{padding: '10px 5px', fontWeight: 'bold'}}>{t.side}</td>
+                      <td className={pnlVal >= 0 ? 'text-win' : 'text-loss'} style={{fontWeight: 'bold', padding: '10px 5px'}}>
+                        {pnlVal >= 0 ? '+' : ''}{pnlVal.toFixed(2)}
+                      </td>
+                      <td className="text-secondary" style={{padding: '10px 5px'}}>{t.duration}</td>
+                      <td style={{padding: '10px 5px'}}>
+                        <button 
+                          onClick={() => handleAnalyzeTrade(t)}
+                          className="upload-btn"
+                          style={{ padding: '6px 12px', fontSize: '0.8rem', opacity: activeTrade === t ? 0.5 : 1 }}
+                          disabled={tradeChartLoading && activeTrade === t}
+                        >
+                          {tradeChartLoading && activeTrade === t ? 'Cargando...' : 'Ver Gráfico'}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* TRADE CHART VIEWER */}
+          {activeTrade && (
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h4 style={{ margin: 0, color: 'var(--primary)' }}>Análisis Visual: Operación {activeTrade.side} ({activeTrade.entry_time})</h4>
+                <button onClick={() => setActiveTrade(null)} className="nav-btn" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>Cerrar</button>
+              </div>
+              
+              {tradeChartLoading && <div style={{padding: '40px', textAlign: 'center', color: '#a1a1aa'}}>Obteniendo velas del mercado para esta operación... <Loader2 size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginLeft: '8px'}} className="spin" /></div>}
+              {marketDataError && <div style={{padding: '40px', textAlign: 'center', color: '#ef4444'}}><AlertTriangle size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginRight: '8px'}} /> {marketDataError}</div>}
+              
+              {!tradeChartLoading && !marketDataError && marketData && marketData.ohlcv && marketData.ohlcv.length > 0 && (
+                <div style={{ height: '550px' }}>
+                  <TVChart marketData={marketData} symbol={activeTrade.symbol} />
+                </div>
+              )}
             </div>
-          )}
-          {!marketDataLoading && !marketDataError && marketData && marketData.ohlcv && marketData.ohlcv.length > 0 && (
-            <TVChart marketData={marketData} symbol={active_symbol} />
           )}
         </div>
       )}

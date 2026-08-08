@@ -5,7 +5,8 @@ import shutil
 import os
 import json
 import time
-from typing import Optional
+from typing import List, Dict, Optional
+from datetime import datetime
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse
 from fastapi.concurrency import run_in_threadpool
@@ -834,6 +835,101 @@ async def download_report(report_id: int, user_id: int = Depends(get_current_use
         raise HTTPException(status_code=404, detail="Archivo original no disponible en el servidor")
 
     return FileResponse(path=file_path, filename=report['filename'])
+
+class TradeChartRequest(BaseModel):
+    symbol: str
+    entry_time: str
+    exit_time: str
+    entry_price: Optional[float] = None
+    exit_price: Optional[float] = None
+    side: str
+    reported_pnl: float
+
+@app.post("/api/trade-chart")
+async def get_trade_chart(req: TradeChartRequest, user_id: int = Depends(get_current_user)):
+    from market_data import fetch_historical_data_range, compute_indicators
+    
+    try:
+        entry_dt = pd.to_datetime(req.entry_time).tz_localize('UTC')
+        exit_dt = pd.to_datetime(req.exit_time).tz_localize('UTC')
+        
+        # Download +/- 4 hours around the trade
+        start_time = entry_dt - pd.Timedelta(hours=4)
+        end_time = exit_dt + pd.Timedelta(hours=4)
+        
+        market_df = await run_in_threadpool(fetch_historical_data_range, req.symbol, start_time, end_time, timeframe='15m')
+        
+        if market_df.empty:
+            return {"success": False, "message": "No market data available for this timeframe"}
+            
+        market_df = compute_indicators(market_df)
+        market_df.dropna(subset=['open', 'high', 'low', 'close'], inplace=True)
+        
+        def safe_val(val):
+            return None if pd.isna(val) else float(val)
+
+        ohlcv_data = [
+            {
+                'time': int(pd.to_datetime(t).tz_localize('UTC').timestamp()),
+                'open': safe_val(o),
+                'high': safe_val(h),
+                'low': safe_val(l),
+                'close': safe_val(c),
+                'EMA_9': safe_val(e9),
+                'EMA_21': safe_val(e21),
+                'RSI_14': safe_val(rsi),
+                'MACD': safe_val(macd),
+                'MACD_Signal': safe_val(macd_s),
+                'MACD_Hist': safe_val(macd_h)
+            }
+            for t, o, h, l, c, e9, e21, rsi, macd, macd_s, macd_h in zip(
+                market_df['timestamp'], market_df['open'], 
+                market_df['high'], market_df['low'], market_df['close'],
+                market_df.get('EMA_9', pd.Series([None]*len(market_df))),
+                market_df.get('EMA_21', pd.Series([None]*len(market_df))),
+                market_df.get('RSI_14', pd.Series([None]*len(market_df))),
+                market_df.get('MACD', pd.Series([None]*len(market_df))),
+                market_df.get('MACD_Signal', pd.Series([None]*len(market_df))),
+                market_df.get('MACD_Hist', pd.Series([None]*len(market_df)))
+            )
+        ]
+        
+        markers = []
+        # Entry
+        markers.append({
+            'time': int(entry_dt.timestamp()),
+            'position': 'belowBar' if req.side == 'Long' else 'aboveBar',
+            'color': '#26a69a' if req.side == 'Long' else '#ef5350',
+            'shape': 'arrowUp' if req.side == 'Long' else 'arrowDown',
+            'text': f"Entry {req.side}"
+        })
+        
+        # Exit
+        is_win = req.reported_pnl > 0
+        markers.append({
+            'time': int(exit_dt.timestamp()),
+            'position': 'aboveBar' if req.side == 'Long' else 'belowBar',
+            'color': '#4caf50' if is_win else '#f44336',
+            'shape': 'arrowDown' if req.side == 'Long' else 'arrowUp',
+            'text': f"WIN (${req.reported_pnl:.2f})" if is_win else f"LOSS (${req.reported_pnl:.2f})"
+        })
+        
+        markers = sorted(markers, key=lambda x: x['time'])
+        
+        return {
+            "success": True,
+            "tv_data": {
+                "ohlcv": ohlcv_data,
+                "markers": markers,
+                "entry_price": req.entry_price,
+                "exit_price": req.exit_price,
+                "side": req.side
+            }
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": str(e)}
 
 if __name__ == "__main__":
     import uvicorn

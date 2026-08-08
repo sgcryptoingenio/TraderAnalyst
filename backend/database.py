@@ -155,9 +155,15 @@ def init_db():
                 exit_price REAL,
                 size REAL,
                 reported_pnl REAL,
+                fee REAL,
                 FOREIGN KEY (session_id) REFERENCES upload_sessions (id) ON DELETE CASCADE
             )
         """)
+        
+        try:
+            cursor.execute("ALTER TABLE trades ADD COLUMN fee REAL")
+        except sqlite3.OperationalError:
+            pass
         
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS settings (

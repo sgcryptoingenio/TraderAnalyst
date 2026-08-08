@@ -158,6 +158,71 @@ const TVChart = ({ marketData }) => {
         }
       }
 
+      if (marketData.entry_price && marketData.exit_price && markerList.length >= 2) {
+        const isWin = marketData.side === 'Long' 
+          ? marketData.exit_price > marketData.entry_price 
+          : marketData.exit_price < marketData.entry_price;
+        const colorTrade = isWin ? '#10b981' : '#ef4444';
+          
+        const syncedMarkers = [];
+        const cTimes = cData.map(c => c.time);
+        markerList.forEach(m => {
+            let snapped = m.time;
+            for (let i = cTimes.length - 1; i >= 0; i--) {
+                if (cTimes[i] <= m.time) {
+                    snapped = cTimes[i];
+                    break;
+                }
+            }
+            syncedMarkers.push({ ...m, time: snapped });
+        });
+        syncedMarkers.sort((a,b) => a.time - b.time);
+        
+        const inTime = syncedMarkers[0].time;
+        const outTime = syncedMarkers[syncedMarkers.length - 1].time;
+        
+        if (inTime && outTime) {
+            // Serie delimitada para la entrada
+            const entryPath = mainChart.addSeries(LineSeries, {
+                color: '#3b82f6', lineWidth: 2, lineStyle: 0, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false
+            });
+            entryPath.setData([
+                { time: inTime, value: marketData.entry_price },
+                { time: outTime, value: marketData.entry_price }
+            ]);
+
+            // Serie delimitada para la salida
+            const exitPath = mainChart.addSeries(LineSeries, {
+                color: colorTrade, lineWidth: 2, lineStyle: 2, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false
+            });
+            exitPath.setData([
+                { time: inTime, value: marketData.exit_price },
+                { time: outTime, value: marketData.exit_price }
+            ]);
+            
+            // Serie diagonal
+            if (inTime !== outTime) {
+                const tradePathSeries = mainChart.addSeries(LineSeries, {
+                    color: colorTrade, lineWidth: 3, lineStyle: 0, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false
+                });
+                tradePathSeries.setData([
+                    { time: inTime, value: marketData.entry_price },
+                    { time: outTime, value: marketData.exit_price }
+                ]);
+            }
+
+            // Forzar un zoom automático (5 velas antes de entrar y 5 después de salir)
+            setTimeout(() => {
+                const idxIn = cTimes.indexOf(inTime);
+                const idxOut = cTimes.indexOf(outTime);
+                if (idxIn !== -1 && idxOut !== -1) {
+                    const range = { from: Math.max(0, idxIn - 8), to: Math.min(cTimes.length - 1, idxOut + 8) };
+                    mainChart.timeScale().setVisibleLogicalRange(range);
+                }
+            }, 50);
+        }
+      }
+
       console.log("[TVChart] Sincronizando gráficos...");
       const syncTimeScales = (s, t1, t2) => {
         s.timeScale().subscribeVisibleLogicalRangeChange((r) => { if (r) { t1.timeScale().setVisibleLogicalRange(r); t2.timeScale().setVisibleLogicalRange(r); } });
@@ -185,7 +250,10 @@ const TVChart = ({ marketData }) => {
       rsiChart.subscribeCrosshairMove(getSyncCrosshairHandler(rsiChart, mainChart, macdChart, candleSeries, macdSeries));
       macdChart.subscribeCrosshairMove(getSyncCrosshairHandler(macdChart, mainChart, rsiChart, candleSeries, rsiSeries));
       
-      mainChart.timeScale().fitContent();
+      // Auto-fit is skipped here since we do a targeted auto-zoom in the trade logic
+      if (!marketData.entry_price) {
+          mainChart.timeScale().fitContent();
+      }
 
       console.log("[TVChart] Creando ResizeObserver...");
       resizeObserver = new ResizeObserver((entries) => {

@@ -321,61 +321,14 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
                 def safe_val(val):
                     return None if pd.isna(val) else float(val)
 
-                # Vectorized OHLCV formatting
-                ohlcv_data = [
-                    {
-                        'time': int(t.timestamp()),
-                        'open': safe_val(o),
-                        'high': safe_val(h),
-                        'low': safe_val(l),
-                        'close': safe_val(c),
-                        'EMA_9': safe_val(e9),
-                        'EMA_21': safe_val(e21),
-                        'RSI_14': safe_val(rsi),
-                        'MACD': safe_val(macd),
-                        'MACD_Signal': safe_val(macd_s),
-                        'MACD_Hist': safe_val(macd_h)
-                    }
-                    for t, o, h, l, c, e9, e21, rsi, macd, macd_s, macd_h in zip(
-                        market_df['timestamp'], market_df['open'], 
-                        market_df['high'], market_df['low'], market_df['close'],
-                        market_df.get('EMA_9', pd.Series([None]*len(market_df))),
-                        market_df.get('EMA_21', pd.Series([None]*len(market_df))),
-                        market_df.get('RSI_14', pd.Series([None]*len(market_df))),
-                        market_df.get('MACD', pd.Series([None]*len(market_df))),
-                        market_df.get('MACD_Signal', pd.Series([None]*len(market_df))),
-                        market_df.get('MACD_Hist', pd.Series([None]*len(market_df)))
-                    )
-                ]
+                # Vectorized OHLCV formatting ha sido movido al endpoint específico de /api/trade-chart para no sobrecargar.
+                ohlcv_data = []
                 
                 symbol_trades = df[(df['symbol'] == symbol_to_fetch) & df['entry_time'].notna()].copy()
                 
-                # Markers (we can format this directly or with a quick iteration since it's just for UI)
-                for _, trade in symbol_trades.iterrows():
-                    # Marcador de Entrada
-                    markers.append({
-                        'time': int(trade['entry_time'].timestamp()),
-                        'position': 'belowBar' if trade['side'] == 'Long' else 'aboveBar',
-                        'color': '#26a69a' if trade['side'] == 'Long' else '#ef5350',
-                        'shape': 'arrowUp' if trade['side'] == 'Long' else 'arrowDown',
-                        'text': f"Entry {trade['side']}"
-                    })
-                    
-                    # Marcador de Salida (Win/Loss)
-                    if pd.notna(trade.get('exit_time')):
-                        is_win = float(trade.get('reported_pnl', 0)) > 0
-                        pnl_val = float(trade.get('reported_pnl', 0))
-                        
-                        markers.append({
-                            'time': int(trade['exit_time'].timestamp()),
-                            'position': 'aboveBar' if trade['side'] == 'Long' else 'belowBar',
-                            'color': '#4caf50' if is_win else '#f44336',
-                            'shape': 'arrowDown' if trade['side'] == 'Long' else 'arrowUp',
-                            'text': f"WIN (${pnl_val:.2f})" if is_win else f"LOSS (${pnl_val:.2f})"
-                        })
-                
-                # Lightweight Charts REQUIRES markers to be strictly sorted by time
-                markers = sorted(markers, key=lambda x: x['time'])
+                # Markers generation (movido a /api/trade-chart)
+                markers = []
+
                 
                 total_symbol_trades = len(symbol_trades)
                 
@@ -492,6 +445,23 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
     total_fees = df['fee'].sum() if 'fee' in df.columns else 0.0
     fees_included = 'fee' in df.columns and (df['fee'] != 0).any()
 
+    # Prepare list of all trades to send to frontend
+    all_trades = df[['symbol', 'side', 'entry_time', 'exit_time', 'true_pnl_pct', 'reported_pnl']].copy()
+    if 'duration' in df.columns:
+        all_trades['duration'] = df['duration']
+    else:
+        all_trades['duration'] = pd.Series([None]*len(all_trades))
+
+    if all_trades['entry_time'].notna().any():
+        all_trades['entry_time'] = all_trades['entry_time'].dt.strftime('%Y-%m-%d %H:%M:%S')
+    if all_trades['exit_time'].notna().any():
+        all_trades['exit_time'] = all_trades['exit_time'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+    if 'duration' in all_trades.columns:
+        all_trades['duration'] = all_trades['duration'].apply(lambda x: str(x).split('.')[0] if pd.notna(x) else "N/A")
+        
+    all_trades = all_trades.fillna('N/A').to_dict('records')
+
     return {
         'available_symbols': available_symbols,
         'total_trades': len(df),
@@ -512,6 +482,7 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
         'equity_curve': equity_data,
         'top_winners': top_winners.to_dict('records'),
         'top_losers': top_losers.to_dict('records'),
+        'all_trades': all_trades,
         'tv_data': {
             'ohlcv': ohlcv_data,
             'markers': markers
