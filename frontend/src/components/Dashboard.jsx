@@ -657,7 +657,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
       {/* TABLES: TOP WINNERS & LOSERS */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '30px' }}>
         {renderTable(metrics.top_winners, "Top 10 Trades Ganadores", <Trophy size={16} color="var(--primary)" />)}
-        {renderTable(metrics.top_losers, "Top 10 Peores Trades", "🚨")}
+        {renderTable(metrics.top_losers, "Top 10 Peores Trades", <AlertTriangle size={16} color="var(--loss-color)" />)}
       </div>
 
       {/* ADVANCED DIAGNOSTICS */}
