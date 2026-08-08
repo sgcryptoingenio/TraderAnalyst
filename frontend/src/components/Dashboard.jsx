@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Brush } from 'recharts';
 import { Loader2, Download, Globe, Info, AlertTriangle, Target, TrendingUp, Trophy } from 'lucide-react';
-import TVChart from './TVChart';
+import EChartTrade from './EChartTrade';
 import html2pdf from 'html2pdf.js';
 import API_BASE from '../api';
 
@@ -22,6 +22,12 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
   
   const { exchange, metrics, active_symbol } = data;
 
+  const uniqueSymbols = useMemo(() => {
+    if (!data || !data.trades) return [];
+    return [...new Set(data.trades.map(t => t.symbol))];
+  }, [data]);
+  
+
   const [marketData, setMarketData] = useState(null);
   const [marketDataLoading, setMarketDataLoading] = useState(false);
   const [marketDataError, setMarketDataError] = useState(null);
@@ -29,10 +35,16 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
   const [brushEndIdx, setBrushEndIdx] = useState(null);
   const [isZoomed, setIsZoomed] = useState(false);
   
+  const [tradeTimeframe, setTradeTimeframe] = useState('15m');
   const [activeTrade, setActiveTrade] = useState(null);
   const [tradeChartLoading, setTradeChartLoading] = useState(false);
+
+
+
   
-  const handleAnalyzeTrade = async (trade) => {
+  const handleAnalyzeTrade = async (trade, tf = null) => {
+    const activeTf = tf || tradeTimeframe;
+    if (tf) setTradeTimeframe(tf);
     if (!trade || !trade.entry_time || trade.entry_time === 'N/A' || trade.exit_time === 'N/A') {
       setMarketDataError("El trade no tiene fechas de entrada y salida válidas para analizar.");
       return;
@@ -56,7 +68,8 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
           entry_price: trade.entry_price && !isNaN(parseFloat(trade.entry_price)) ? parseFloat(trade.entry_price) : null,
           exit_price: trade.exit_price && !isNaN(parseFloat(trade.exit_price)) ? parseFloat(trade.exit_price) : null,
           side: trade.side,
-          reported_pnl: parseFloat(trade.reported_pnl)
+          reported_pnl: parseFloat(trade.reported_pnl),
+          timeframe: activeTf
         })
       });
       const resData = await response.json();
@@ -297,6 +310,8 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
         )}
       </div>
 
+
+
       {/* METRICS GRID (4 COLUMNS) */}
       <div className="dashboard-grid" style={{ marginBottom: '30px' }}>
         {/* WIN RATE */}
@@ -510,7 +525,21 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
           {activeTrade && (
             <div style={{ background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h4 style={{ margin: 0, color: 'var(--primary)' }}>Análisis Visual: Operación {activeTrade.side} ({activeTrade.entry_time})</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <h4 style={{ margin: 0, color: 'var(--primary)' }}>Análisis Visual: Operación {activeTrade.side} ({activeTrade.entry_time})</h4>
+                  <select
+                    value={tradeTimeframe}
+                    onChange={(e) => handleAnalyzeTrade(activeTrade, e.target.value)}
+                    style={{ background: '#27272a', color: '#f4f4f5', border: '1px solid #3f3f46', borderRadius: '4px', padding: '4px 8px', fontSize: '0.85rem' }}
+                  >
+                    <option value="1m">1m</option>
+                    <option value="5m">5m</option>
+                    <option value="15m">15m</option>
+                    <option value="1h">1h</option>
+                    <option value="4h">4h</option>
+                    <option value="1d">1d</option>
+                  </select>
+                </div>
                 <button onClick={() => setActiveTrade(null)} className="nav-btn" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>Cerrar</button>
               </div>
               
@@ -518,12 +547,15 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
               {marketDataError && <div style={{padding: '40px', textAlign: 'center', color: '#ef4444'}}><AlertTriangle size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginRight: '8px'}} /> {marketDataError}</div>}
               
               {!tradeChartLoading && !marketDataError && marketData && marketData.ohlcv && marketData.ohlcv.length > 0 && (
-                <div style={{ height: '550px' }}>
-                  <TVChart marketData={marketData} symbol={activeTrade.symbol} />
+                <div className="w-full bg-[#1A1A1A] rounded-xl overflow-hidden shadow-2xl relative" style={{ height: '70vh' }}>
+                  <EChartTrade marketData={marketData} />
                 </div>
               )}
             </div>
           )}
+
+
+
         </div>
       )}
 

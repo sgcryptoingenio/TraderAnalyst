@@ -21,6 +21,19 @@ def _init_cache_db():
                 price REAL
             )
         ''')
+        # Nueva arquitectura Time-Series base 5 minutos
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS market_candles_5m (
+                symbol TEXT,
+                timestamp INTEGER,
+                open REAL,
+                high REAL,
+                low REAL,
+                close REAL,
+                volume REAL,
+                PRIMARY KEY (symbol, timestamp)
+            )
+        ''')
 
 _init_cache_db()
 binance_ex = ccxt.binance({'enableRateLimit': False, 'timeout': 10000})
@@ -84,70 +97,125 @@ def fetch_ohlcv(symbol, timeframe='15m', limit=1000, since=None):
         print(f"Error fatal fetching data: {e}")
         return pd.DataFrame()
 
-def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
-    """
-    Descarga todo el rango histórico en bloques para evitar hacer peticiones individuales.
-    """
-    try:
-        cache_key = f"{symbol}_{start_time.timestamp()}_{end_time.timestamp()}_{timeframe}"
-        with sqlite3.connect(CACHE_DB) as conn:
-            cursor = conn.execute('SELECT data FROM ohlcv_cache WHERE cache_key = ?', (cache_key,))
-            row = cursor.fetchone()
-            if row:
-                cached_df = pickle.loads(row[0])
-                if not cached_df.empty:
-                    cols_to_num = ['open', 'high', 'low', 'close', 'volume']
-                    existing_cols = [c for c in cols_to_num if c in cached_df.columns]
-                    if existing_cols:
-                        cached_df[existing_cols] = cached_df[existing_cols].apply(pd.to_numeric, errors='coerce')
-                return cached_df
 
-        since_ms = int(start_time.timestamp() * 1000)
-        end_ms = int(end_time.timestamp() * 1000)
+def resample_ohlcv(df_5m, timeframe):
+    if timeframe == '5m' or df_5m.empty:
+        return df_5m
+    
+    tf_map = {
+        '1m': '1min',
+        '5m': '5min',
+        '15m': '15min',
+        '30m': '30min',
+        '1h': '1h',
+        '4h': '4h',
+        '1d': '1D'
+    }
+    rule = tf_map.get(timeframe)
+    if not rule:
+        return df_5m
         
-        clean_symbol = symbol.replace('USD', 'USDT')
-        if '/' not in clean_symbol:
-            clean_symbol = clean_symbol.replace('USDT', '/USDT')
-            
-        exchanges_to_try = GLOBAL_EXCHANGES
+    df = df_5m.copy()
+    if pd.api.types.is_numeric_dtype(df['timestamp']):
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True).dt.tz_localize(None)
         
-        all_ohlcv = []
+    df = df.set_index('timestamp')
+    resampled = df.resample(rule).agg({
+        'open': 'first',
+        'high': 'max',
+        'low': 'min',
+        'close': 'last',
+        'volume': 'sum'
+    }).dropna().reset_index()
+    return resampled
+
+def fetch_and_cache_5m(symbol, start_time, end_time):
+    start_ts = int(start_time.timestamp() * 1000)
+    end_ts = int(end_time.timestamp() * 1000)
+    
+    with sqlite3.connect(CACHE_DB) as conn:
+        df_db = pd.read_sql_query(
+            "SELECT * FROM market_candles_5m WHERE symbol = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC",
+            conn, params=(symbol, start_ts, end_ts)
+        )
+    
+    expected_candles = max(1, (end_ts - start_ts) / 300000)
+    
+    if len(df_db) >= expected_candles * 0.95:
+        df_db['timestamp'] = pd.to_datetime(df_db['timestamp'], unit='ms', utc=True).dt.tz_localize(None)
+        return df_db
         
-        # Hacemos iteraciones seguras (máximo 30 para evitar timeouts si el rango es bestial pero permitir 300 días en 15m)
-        for _ in range(30):
-            ohlcv = None
-            for ex in exchanges_to_try:
+    clean_symbol = symbol.replace('USD', 'USDT')
+    if '/' not in clean_symbol:
+        clean_symbol = clean_symbol.replace('USDT', '/USDT')
+        
+    all_ohlcv = []
+    since_ms = start_ts
+    
+    for _ in range(150):
+        ohlcv = None
+        for ex in GLOBAL_EXCHANGES:
+            try:
+                ohlcv = ex.fetch_ohlcv(clean_symbol, '5m', since=since_ms, limit=1000)
+                if ohlcv and len(ohlcv) > 0:
+                    break
+            except Exception:
+                continue
+        
+        if not ohlcv or len(ohlcv) == 0:
+            for ex in GLOBAL_EXCHANGES:
                 try:
-                    ohlcv = ex.fetch_ohlcv(clean_symbol, timeframe, since=since_ms, limit=1000)
+                    ohlcv = ex.fetch_ohlcv('BTC/USDT', '5m', since=since_ms, limit=1000)
                     if ohlcv and len(ohlcv) > 0:
                         break
                 except Exception:
                     continue
-                    
-            if not ohlcv or len(ohlcv) == 0:
-                for ex in exchanges_to_try:
-                    try:
-                        ohlcv = ex.fetch_ohlcv('BTC/USDT', timeframe, since=since_ms, limit=1000)
-                        if ohlcv and len(ohlcv) > 0:
-                            break
-                    except Exception:
-                        continue
-                    
-            if not ohlcv or len(ohlcv) == 0:
-                break
-                
-            all_ohlcv.extend(ohlcv)
+        
+        if not ohlcv or len(ohlcv) == 0:
+            break
             
-            # El último timestamp devuelto
-            last_ts = ohlcv[-1][0]
-            if last_ts >= end_ms:
-                break
-                
-            # Avanzamos el puntero (sumamos 1 milisegundo para no repetir vela)
-            since_ms = last_ts + 1
+        all_ohlcv.extend(ohlcv)
+        last_ts = ohlcv[-1][0]
+        if last_ts >= end_ts:
+            break
+        since_ms = last_ts + 1
+        
+    if not all_ohlcv:
+        if not df_db.empty:
+            df_db['timestamp'] = pd.to_datetime(df_db['timestamp'], unit='ms', utc=True).dt.tz_localize(None)
+        return df_db
+        
+    df_new = pd.DataFrame(all_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df_new['symbol'] = symbol
+    df_new = df_new.drop_duplicates(subset=['timestamp'])
+    
+    records = df_new[['symbol', 'timestamp', 'open', 'high', 'low', 'close', 'volume']].values.tolist()
+    with sqlite3.connect(CACHE_DB) as conn:
+        conn.executemany('''
+            INSERT OR REPLACE INTO market_candles_5m (symbol, timestamp, open, high, low, close, volume)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', records)
+        
+    with sqlite3.connect(CACHE_DB) as conn:
+        df_final = pd.read_sql_query(
+            "SELECT * FROM market_candles_5m WHERE symbol = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC",
+            conn, params=(symbol, start_ts, end_ts)
+        )
+    df_final['timestamp'] = pd.to_datetime(df_final['timestamp'], unit='ms', utc=True).dt.tz_localize(None)
+    return df_final
+
+def fetch_historical_data_range(symbol, start_time, end_time, timeframe='1h'):
+    try:
+        df_5m = fetch_and_cache_5m(symbol, start_time, end_time)
+        if df_5m.empty:
+            return df_5m
             
-        if not all_ohlcv:
-            return pd.DataFrame()
+        resampled_df = resample_ohlcv(df_5m, timeframe)
+        return resampled_df
+    except Exception as e:
+        print(f"Error fetching data range: {e}")
+        return pd.DataFrame()
+
             
         df = pd.DataFrame(all_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df[['open', 'high', 'low', 'close', 'volume']] = df[['open', 'high', 'low', 'close', 'volume']].astype(float)

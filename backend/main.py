@@ -844,6 +844,7 @@ class TradeChartRequest(BaseModel):
     exit_price: Optional[float] = None
     side: str
     reported_pnl: float
+    timeframe: str = '15m'
 
 @app.post("/api/trade-chart")
 async def get_trade_chart(req: TradeChartRequest, user_id: int = Depends(get_current_user)):
@@ -853,11 +854,12 @@ async def get_trade_chart(req: TradeChartRequest, user_id: int = Depends(get_cur
         entry_dt = pd.to_datetime(req.entry_time).tz_localize('UTC')
         exit_dt = pd.to_datetime(req.exit_time).tz_localize('UTC')
         
-        # Download +/- 4 hours around the trade
-        start_time = entry_dt - pd.Timedelta(hours=4)
-        end_time = exit_dt + pd.Timedelta(hours=4)
+        # Configurar padding según timeframe
+        padding = pd.Timedelta(days=60) if req.timeframe in ['1d'] else pd.Timedelta(days=10) if req.timeframe in ['4h'] else pd.Timedelta(days=2) if req.timeframe in ['1h'] else pd.Timedelta(hours=6)
+        start_time = entry_dt - padding
+        end_time = exit_dt + padding
         
-        market_df = await run_in_threadpool(fetch_historical_data_range, req.symbol, start_time, end_time, timeframe='15m')
+        market_df = await run_in_threadpool(fetch_historical_data_range, req.symbol, start_time, end_time, timeframe=req.timeframe)
         
         if market_df.empty:
             return {"success": False, "message": "No market data available for this timeframe"}
@@ -931,6 +933,3 @@ async def get_trade_chart(req: TradeChartRequest, user_id: int = Depends(get_cur
         traceback.print_exc()
         return {"success": False, "message": str(e)}
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
