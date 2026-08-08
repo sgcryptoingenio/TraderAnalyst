@@ -47,10 +47,18 @@ def is_trade_level_csv(df):
     pnl_indicators = ['netprofits', 'realized p/l', 'realized_pnl', 'pnl', 'realized pnl', 'p/l', 'ganancia', 'ganancias', 'profit']
     has_pnl = any(ind in clean_cols for ind in pnl_indicators)
     
-    if ('side' in clean_cols or 'direction' in clean_cols or 'tipo' in clean_cols) and has_pnl and ('average price' in clean_cols or 'price' in clean_cols or 'precio' in clean_cols):
+    if ('side' in clean_cols or 'direction' in clean_cols or 'tipo' in clean_cols or 'lado' in clean_cols):
         # Asegurar que no es un historial de posiciones agrupadas (que tendría exit_time y entry_time juntos)
-        if not (('exit time' in clean_cols or 'fecha de cierre' in clean_cols) and ('entry time' in clean_cols or 'fecha de apertura' in clean_cols)):
+        has_exit_entry_times = ('exit time' in clean_cols or 'fecha de cierre' in clean_cols) and ('entry time' in clean_cols or 'fecha de apertura' in clean_cols)
+        
+        # BingX Deal History (has PNL)
+        if has_pnl and ('average price' in clean_cols or 'price' in clean_cols or 'precio' in clean_cols) and not has_exit_entry_times:
             return True
+            
+        # Binance Order History (has Status/Estado and Executed Quantity)
+        if ('estado' in clean_cols or 'status' in clean_cols) and ('cantidad ejecutada' in clean_cols or 'executed' in clean_cols):
+            return True
+            
     return False
 
 def reconstruct_positions_from_trades(df):
@@ -61,12 +69,17 @@ def reconstruct_positions_from_trades(df):
     clean_cols = [str(c).lower().strip() for c in df.columns]
     col_map = dict(zip(clean_cols, df.columns))
     
+    # Filtrar solo órdenes completadas si es historial de órdenes
+    status_col = find_column(clean_cols, ['estado', 'status'])
+    if status_col:
+        df = df[df[col_map[status_col]].astype(str).str.upper().isin(['FILLED', 'COMPLETADO', 'PARTIALLY_FILLED', 'PARCIAL'])]
+        
     # Identificar columna de tiempo
-    time_col = find_column(clean_cols, ['time_iso', 'date', 'time', 'fecha', 'timestamp'])
+    time_col = find_column(clean_cols, ['time_iso', 'date', 'time', 'fecha', 'timestamp', 'hora', 'actualizar hora'])
     if not time_col:
         raise ValueError("No se encontró columna de tiempo para ordenar los trades.")
         
-    if time_col.lower() in ['time_iso', 'date']:
+    if time_col.lower() in ['time_iso', 'date', 'hora', 'actualizar hora']:
         df['parsed_time'] = pd.to_datetime(df[col_map[time_col]], errors='coerce', utc=True).dt.tz_localize(None)
     else:
         # Asume unix timestamp
@@ -76,12 +89,12 @@ def reconstruct_positions_from_trades(df):
     df = df.sort_values(by='parsed_time', ascending=True)
     
     # Mapeo heurístico de columnas
-    token_col = find_column(clean_cols, ['token', 'futures', 'symbol', 'coin', 'par'])
-    type_col = find_column(clean_cols, ['type', 'side', 'direction'])
-    amount_col = find_column(clean_cols, ['amount', 'transaction amount', 'size', 'qty'])
-    price_col = find_column(clean_cols, ['px', 'average price', 'price', 'precio'])
-    fee_col = find_column(clean_cols, ['fee', 'comisión'])
-    pnl_col = find_column(clean_cols, ['netprofits', 'realized p/l', 'realized_pnl', 'closed_pnl'])
+    token_col = find_column(clean_cols, ['token', 'futures', 'symbol', 'coin', 'par', 'símbolo', 'smbolo', 'smbolo'])
+    type_col = find_column(clean_cols, ['type', 'side', 'direction', 'lado'])
+    amount_col = find_column(clean_cols, ['cantidad ejecutada', 'executed', 'amount', 'transaction amount', 'size', 'qty', 'cantidad'])
+    price_col = find_column(clean_cols, ['precio promedio', 'average price', 'px', 'price', 'precio'])
+    fee_col = find_column(clean_cols, ['fee', 'comisión', 'comision'])
+    pnl_col = find_column(clean_cols, ['netprofits', 'realized p/l', 'realized_pnl', 'closed_pnl', 'pnl'])
     
     positions = []
     ledger = {}
