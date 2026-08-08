@@ -44,9 +44,12 @@ def is_trade_level_csv(df):
     if 'type' in clean_cols and 'token' in clean_cols and 'px' in clean_cols and 'amount' in clean_cols:
         return True
     # BingX / Kucoin Futures Deal History
-    if ('side' in clean_cols or 'direction' in clean_cols) and ('netprofits' in clean_cols or 'realized p/l' in clean_cols or 'realized_pnl' in clean_cols) and ('average price' in clean_cols or 'price' in clean_cols):
+    pnl_indicators = ['netprofits', 'realized p/l', 'realized_pnl', 'pnl', 'realized pnl', 'p/l', 'ganancia', 'ganancias', 'profit']
+    has_pnl = any(ind in clean_cols for ind in pnl_indicators)
+    
+    if ('side' in clean_cols or 'direction' in clean_cols or 'tipo' in clean_cols) and has_pnl and ('average price' in clean_cols or 'price' in clean_cols or 'precio' in clean_cols):
         # Asegurar que no es un historial de posiciones agrupadas (que tendría exit_time y entry_time juntos)
-        if not ('exit time' in clean_cols and 'entry time' in clean_cols):
+        if not (('exit time' in clean_cols or 'fecha de cierre' in clean_cols) and ('entry time' in clean_cols or 'fecha de apertura' in clean_cols)):
             return True
     return False
 
@@ -170,15 +173,15 @@ def smart_parse(df):
     col_map = dict(zip(clean_cols, original_cols))
     
     # Heuristics
-    sym_col = find_column(clean_cols, ['symbol', 'futures', 'símbolo', 'pair', 'par', 'price unit', 'mercado', 'market'])
-    side_col = find_column(clean_cols, ['side', 'direction', 'dirección', 'long/short', 'tipo', 'type'])
-    entry_p_col = find_column(clean_cols, ['entry price', 'precio entrada', 'avg entry', 'entry', 'average entry price', 'avg. entry price', 'entry_price', 'precio de entrada', 'precio', 'price'])
-    exit_p_col = find_column(clean_cols, ['exit price', 'precio salida', 'avg close', 'exit', 'average closing price', 'avg. exit price', 'exit_price', 'precio de cierre', 'closing price'])
-    entry_t_col = find_column(clean_cols, ['open time', 'entry time', 'opening time', 'fecha entrada', 'time', 'entry_time', 'fecha/hora de apertura', 'fecha de apertura'])
-    exit_t_col = find_column(clean_cols, ['close time', 'exit time', 'fecha salida', 'cerrado', 'closed time', 'exit_time', 'fecha/hora de cierre', 'fecha de cierre'])
-    size_col = find_column(clean_cols, ['closed amount', 'size', 'closing qty', 'closed position', 'cantidad', 'qty', 'amount'])
-    pnl_col = find_column(clean_cols, ['realized pnl', 'pnl', 'pnl usd', 'pnl %', 'beneficio', 'ganancia', 'profit', 'reported_pnl', 'realized_pnl', 'pnl realizado', 'beneficio obtenido'])
-    fee_col = find_column(clean_cols, ['fee', 'comisión', 'comision', 'fees'])
+    sym_col = find_column(clean_cols, ['symbol', 'futures', 'símbolo', 'pair', 'par', 'price unit', 'mercado', 'market', 'contrato', 'contract'])
+    side_col = find_column(clean_cols, ['side', 'direction', 'dirección', 'long/short', 'tipo', 'type', 'lado'])
+    entry_p_col = find_column(clean_cols, ['entry price', 'precio entrada', 'avg entry', 'entry', 'average entry price', 'avg. entry price', 'entry_price', 'precio de entrada', 'precio', 'price', 'precio medio de apertura'])
+    exit_p_col = find_column(clean_cols, ['exit price', 'precio salida', 'avg close', 'exit', 'average closing price', 'avg. exit price', 'exit_price', 'precio de cierre', 'closing price', 'precio medio de cierre'])
+    entry_t_col = find_column(clean_cols, ['open time', 'entry time', 'opening time', 'fecha entrada', 'time', 'entry_time', 'fecha/hora de apertura', 'fecha de apertura', 'fecha de creacion', 'creation time'])
+    exit_t_col = find_column(clean_cols, ['close time', 'exit time', 'fecha salida', 'cerrado', 'closed time', 'exit_time', 'fecha/hora de cierre', 'fecha de cierre', 'fecha de actualización', 'update time'])
+    size_col = find_column(clean_cols, ['closed amount', 'size', 'closing qty', 'closed position', 'cantidad', 'qty', 'amount', 'volumen', 'volume'])
+    pnl_col = find_column(clean_cols, ['realized pnl', 'pnl', 'pnl usd', 'pnl %', 'beneficio', 'ganancia', 'ganancias', 'profit', 'reported_pnl', 'realized_pnl', 'pnl realizado', 'beneficio obtenido', 'p/l', 'net pnl', 'net profit', 'beneficio/pérdida', 'ganancia/pérdida'])
+    fee_col = find_column(clean_cols, ['fee', 'comisión', 'comision', 'fees', 'tarifas', 'tarifa'])
     
     # Required columns logic
     if not pnl_col and not exit_p_col:
