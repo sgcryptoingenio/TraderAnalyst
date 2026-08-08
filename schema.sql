@@ -7,6 +7,11 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT,
     password_hash TEXT NOT NULL,
     role TEXT DEFAULT 'user',
+    mentor_id INTEGER,
+    invite_code TEXT UNIQUE,
+    help_link TEXT,
+    name TEXT,
+    photo_data TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

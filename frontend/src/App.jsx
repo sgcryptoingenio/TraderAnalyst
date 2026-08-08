@@ -167,25 +167,39 @@ function App() {
     if (!reportId) return;
     setLoading(true);
     setError('');
+    let mergedFilters;
+    if (currentSessionId !== reportId) {
+      mergedFilters = { symbol: null, startTime: null, endTime: null, timeframe: null, ...filtersToApply };
+    } else {
+      mergedFilters = { ...activeFilters, ...filtersToApply };
+    }
+    
     setCurrentSessionId(reportId);
-
-    const mergedFilters = { ...activeFilters, ...filtersToApply };
     setActiveFilters(mergedFilters);
 
     try {
-      let response = await fetch(`${API_BASE}/api/report/${reportId}/analyze`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          target_symbol: mergedFilters.symbol || null,
-          start_time: mergedFilters.startTime || null,
-          end_time: mergedFilters.endTime || null,
-          timeframe: mergedFilters.timeframe || null
-        })
-      });
+      const hasFilters = mergedFilters.symbol || mergedFilters.startTime || mergedFilters.endTime || mergedFilters.timeframe;
+      let response;
+      if (hasFilters) {
+        response = await fetch(`${API_BASE}/api/report/${reportId}/analyze`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            target_symbol: mergedFilters.symbol || null,
+            start_time: mergedFilters.startTime || null,
+            end_time: mergedFilters.endTime || null,
+            timeframe: mergedFilters.timeframe || null
+          })
+        });
+      } else {
+        response = await fetch(`${API_BASE}/api/report/${reportId}`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
 
       if (response.status === 401) {
         handleLogout();
