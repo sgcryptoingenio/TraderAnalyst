@@ -772,7 +772,7 @@ async def analyze_report_symbol(report_id: int, req: AnalyzeRequest, user_id: in
                 WHERE s.user_id = ? AND s.filename = ?
                 ORDER BY s.id DESC
             """
-            df = pd.read_sql_query(query, conn, params=(user_id, report['filename']))
+            df = pd.read_sql_query(query, conn, params=(report['user_id'], report['filename']))
             if df.empty:
                 raise HTTPException(status_code=404, detail="El archivo original ya no está disponible y no se encontraron operaciones en la base de datos.")
             
