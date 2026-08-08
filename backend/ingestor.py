@@ -185,7 +185,9 @@ def smart_parse(df):
     
     # Required columns logic
     if not pnl_col and not exit_p_col:
-        raise ValueError("No se pudo identificar una columna de ganancias (PnL) o de precio de salida en el archivo.")
+        print(f"[WARNING] No PnL or Exit Price found. Columns available: {original_cols}")
+        # Ya no lanzamos error para permitir que CUALQUIER archivo pase, 
+        # aunque los cálculos de ganancia asuman 0 si no se encuentra nada.
         
     standard_data = []
     
