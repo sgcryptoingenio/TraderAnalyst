@@ -2,9 +2,9 @@
 .auth-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(6, 6, 10, 0.75);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -18,14 +18,18 @@
 }
 
 .auth-modal-content {
-  background: rgba(20, 20, 30, 0.85);
-  border: 1px solid rgba(245, 166, 35, 0.2);
+  background: rgba(20, 20, 30, 0.3);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 24px;
   width: 90%;
   max-width: 440px;
   padding: 40px;
   position: relative;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 40px rgba(245, 166, 35, 0.1);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -1px 0 rgba(0,0,0,0.5);
   transform: translateY(20px);
   animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   overflow: hidden;
@@ -41,7 +45,7 @@
   position: absolute;
   top: -50%; left: -50%;
   width: 200%; height: 200%;
-  background: radial-gradient(circle at 50% 0%, rgba(245, 166, 35, 0.15), transparent 40%);
+  background: radial-gradient(circle at 50% 0%, rgba(245, 166, 35, 0.2), transparent 50%);
   pointer-events: none;
   z-index: 0;
 }

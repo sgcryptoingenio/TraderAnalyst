@@ -248,8 +248,14 @@ function App() {
   }
 
   return (
-    <div className="app-wrapper">
-      <nav className="navbar glass-card">
+    <>
+      <div className="bg-blobs">
+        <div className="blob blob-1"></div>
+        <div className="blob blob-2"></div>
+        <div className="blob blob-3"></div>
+      </div>
+      <div className="app-wrapper">
+        <nav className="navbar glass-card">
         <h2>Sabueso</h2>
         <div className="nav-buttons">
           <span className="text-secondary" style={{ marginRight: '10px' }}>
@@ -374,6 +380,7 @@ function App() {
         </ErrorBoundary>
       )}
     </div>
+    </>
   );
 }
 
