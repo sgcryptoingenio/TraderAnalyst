@@ -186,14 +186,14 @@ def smart_parse(df):
     col_map = dict(zip(clean_cols, original_cols))
     
     # Heuristics
-    sym_col = find_column(clean_cols, ['symbol', 'futures', 'símbolo', 'pair', 'par', 'price unit', 'mercado', 'market', 'contrato', 'contract'])
+    sym_col = find_column(clean_cols, ['symbol', 'futures', 'símbolo', 'pair', 'par', 'price unit', 'precio unitario', 'mercado', 'market', 'contrato', 'contract'])
     side_col = find_column(clean_cols, ['side', 'direction', 'dirección', 'long/short', 'tipo', 'type', 'lado'])
-    entry_p_col = find_column(clean_cols, ['entry price', 'precio entrada', 'avg entry', 'entry', 'average entry price', 'avg. entry price', 'entry_price', 'precio de entrada', 'precio', 'price', 'precio medio de apertura'])
-    exit_p_col = find_column(clean_cols, ['exit price', 'precio salida', 'avg close', 'exit', 'average closing price', 'avg. exit price', 'exit_price', 'precio de cierre', 'closing price', 'precio medio de cierre'])
+    entry_p_col = find_column(clean_cols, ['entry price', 'precio entrada', 'precio promedio de entrada', 'avg entry', 'entry', 'average entry price', 'avg. entry price', 'entry_price', 'precio de entrada', 'precio', 'price', 'precio medio de apertura'])
+    exit_p_col = find_column(clean_cols, ['exit price', 'precio salida', 'precio promedio de salida', 'avg close', 'exit', 'average closing price', 'avg. exit price', 'exit_price', 'precio de cierre', 'closing price', 'precio medio de cierre'])
     entry_t_col = find_column(clean_cols, ['open time', 'entry time', 'opening time', 'fecha entrada', 'time', 'entry_time', 'fecha/hora de apertura', 'fecha de apertura', 'fecha de creacion', 'creation time'])
     exit_t_col = find_column(clean_cols, ['close time', 'exit time', 'fecha salida', 'cerrado', 'closed time', 'exit_time', 'fecha/hora de cierre', 'fecha de cierre', 'fecha de actualización', 'update time'])
-    size_col = find_column(clean_cols, ['closed amount', 'size', 'closing qty', 'closed position', 'cantidad', 'qty', 'amount', 'volumen', 'volume'])
-    pnl_col = find_column(clean_cols, ['realized pnl', 'pnl', 'pnl usd', 'pnl %', 'beneficio', 'ganancia', 'ganancias', 'profit', 'reported_pnl', 'realized_pnl', 'pnl realizado', 'beneficio obtenido', 'p/l', 'net pnl', 'net profit', 'beneficio/pérdida', 'ganancia/pérdida'])
+    size_col = find_column(clean_cols, ['closed amount', 'size', 'closing qty', 'closed position', 'posición cerrada', 'posicion cerrada', 'cantidad', 'qty', 'amount', 'volumen', 'volume'])
+    pnl_col = find_column(clean_cols, ['realized pnl', 'pnl', 'pnl usd', 'pnl %', 'gyp realizadas', 'beneficio', 'ganancia', 'ganancias', 'profit', 'reported_pnl', 'realized_pnl', 'pnl realizado', 'beneficio obtenido', 'p/l', 'net pnl', 'net profit', 'beneficio/pérdida', 'ganancia/pérdida'])
     fee_col = find_column(clean_cols, ['fee', 'comisión', 'comision', 'fees', 'tarifas', 'tarifa'])
     
     # Required columns logic
