@@ -157,6 +157,7 @@ async def google_auth(auth: GoogleAuth, db = Depends(get_db)):
                 (username, hashed_password, email)
             )
         except Exception:
+            conn.rollback()
             cursor.execute(
                 "INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, 'user', ?)",
                 (username, hashed_password, email)
@@ -204,6 +205,7 @@ def change_password(
     try:
         cursor.execute("UPDATE users SET password_hash = ?, auth_provider = 'local' WHERE id = ?", (hashed_new_password, user_id))
     except Exception:
+        conn.rollback()
         cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hashed_new_password, user_id))
     conn.commit()
     
@@ -222,6 +224,7 @@ def get_profile(user_id: int = Depends(get_current_user), db = Depends(get_db)):
     try:
         cursor.execute("SELECT username, email, role, name, photo_data, auth_provider FROM users WHERE id = ?", (user_id,))
     except Exception:
+        conn.rollback()
         cursor.execute("SELECT username, email, role, name, photo_data, 'local' as auth_provider FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
     if not user:
