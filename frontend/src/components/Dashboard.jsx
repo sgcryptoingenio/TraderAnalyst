@@ -383,9 +383,9 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
 
       
       {/* SPLIT SCREEN GRID */}
-      <div className="dashboard-split-screen" style={ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '20px', marginBottom: '30px' }>
+      <div className="dashboard-split-screen" style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '20px', marginBottom: '30px' }}>
         
-        <div className="equity-column" style={ minWidth: 0 }>
+        <div className="equity-column" style={{ minWidth: 0 }}>
 {/* EQUITY CURVE */}
       {metrics.equity_curve && metrics.equity_curve.length > 0 && (
         <div className="glass-card" style={{ height: '550px', display: 'flex', flexDirection: 'column' }}>
@@ -479,7 +479,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
       
         </div>
 
-        <div className="predictive-column" style={ minWidth: 0 }>
+        <div className="predictive-column" style={{ minWidth: 0 }}>
 {/* PREDICTIVE MODELING & QUANT METRICS */}
       <div className="glass-card" style={{ height: '550px', display: 'flex', flexDirection: 'column', padding: '24px' }}>
         <h3 style={{marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px'}}>🎯 Modelado Predictivo y Análisis Quant</h3>
