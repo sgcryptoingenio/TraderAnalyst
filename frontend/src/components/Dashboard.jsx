@@ -27,8 +27,8 @@ const PATTERN_TOOLTIPS = {
   'Caza-Reversiones': 'Búsqueda de giros en contra de la tendencia principal en niveles extremos (Fading).',
   'Reversión a la media': 'Entradas basadas en sobrecompra/sobreventa usando osciladores como el RSI.',
   'Rechazo Institucional': 'Entradas en zonas de liquidez o bloques de órdenes (Order Blocks/SMC).',
-  'Riesgo de Martingala': 'Comportamiento negativo: Aumentar el tamaño o promediar en pérdidas.',
-  'Re-Entradas Perdidas': 'Comportamiento negativo: Reingresar repetitivamente tras ser liquidado (Revenge trading).'
+  'Riesgo de Martingala': 'Comportamiento negativo: Aumentar el lotaje o promediar en pérdidas.',
+  'Re-Entradas Perdidas': 'Comportamiento negativo: Reingresar repetitivamente en la misma dirección tras una pérdida (Revenge trading).'
 };
 
 const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange }) => {
@@ -498,7 +498,30 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
       </h3>
       <p className="metric-subtitle" style={{textAlign: 'left', marginBottom: '16px'}}>Patrones ordenados por frecuencia de aparición</p>
       
-      <div style={{ overflowY: 'auto', flex: 1, paddingRight: '10px', position: 'relative' }} className="custom-scrollbar" id="quant-scroll-area">
+      
+      <div style={{
+        minHeight: '60px', 
+        marginBottom: '15px', 
+        padding: '12px 15px', 
+        background: 'rgba(0,0,0,0.2)', 
+        border: '1px solid rgba(255,255,255,0.05)', 
+        borderRadius: '8px', 
+        fontSize: '0.85rem', 
+        color: (hoveredStrategy || hoveredPattern) ? '#f4f4f5' : '#71717a',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        transition: 'all 0.3s ease'
+      }}>
+        <Info size={18} color={(hoveredStrategy || hoveredPattern) ? 'var(--primary)' : '#52525b'} style={{flexShrink: 0}} />
+        <span style={{lineHeight: '1.4'}}>
+          {(hoveredStrategy && STRATEGY_TOOLTIPS[hoveredStrategy]) || 
+           (hoveredPattern && PATTERN_TOOLTIPS[hoveredPattern]) || 
+           "Pasa el cursor sobre el ícono (i) de una estrategia o patrón para ver su descripción."}
+        </span>
+      </div>
+
+<div style={{ overflowY: 'auto', flex: 1, paddingRight: '10px', position: 'relative' }} className="custom-scrollbar" id="quant-scroll-area">
         
         {metrics.strategies && Object.keys(metrics.strategies).length > 0 && (
           <div>
@@ -515,26 +538,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
                         onMouseLeave={() => setHoveredStrategy(null)}
                       >
                         <Info size={14} color="#a1a1aa" />
-                        {hoveredStrategy === strat && (
-                          <div style={{
-                            position: 'absolute', 
-                            bottom: 'calc(100% + 5px)', 
-                            left: '50%', 
-                            transform: 'translateX(-50%)', 
-                            background: '#18181b', 
-                            border: '1px solid var(--border-color)', 
-                            padding: '10px', 
-                            borderRadius: '8px', 
-                            width: '240px', 
-                            zIndex: 100, 
-                            color: '#f4f4f5', 
-                            fontSize: '0.75rem', 
-                            fontWeight: 'normal',
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.8)'
-                          }}>
-                            {STRATEGY_TOOLTIPS[strat] || "Información de la estrategia."}
-                          </div>
-                        )}
+                        
                       </span>
                     </span>
                     <span style={{fontWeight: '700', color: score >= 60 ? 'var(--primary)' : score >= 40 ? '#f59e0b' : 'var(--loss-color)', fontSize: '0.9rem'}}>{score}%</span>
@@ -582,26 +586,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
                       onMouseLeave={() => setHoveredPattern(null)}
                     >
                       <Info size={14} color="#a1a1aa" />
-                      {hoveredPattern === label && (
-                        <div style={{
-                          position: 'absolute', 
-                          bottom: 'calc(100% + 5px)', 
-                          left: '50%', 
-                          transform: 'translateX(-50%)', 
-                          background: '#18181b', 
-                          border: '1px solid var(--border-color)', 
-                          padding: '10px', 
-                          borderRadius: '8px', 
-                          width: '240px', 
-                          zIndex: 100, 
-                          color: '#f4f4f5', 
-                          fontSize: '0.75rem', 
-                          fontWeight: 'normal',
-                          boxShadow: '0 4px 20px rgba(0,0,0,0.8)'
-                        }}>
-                          {PATTERN_TOOLTIPS[label] || "Información del patrón."}
-                        </div>
-                      )}
+                      
                     </span>
                   </span>
                   <span style={{fontWeight: '700', fontSize: '0.95rem', color}}>
