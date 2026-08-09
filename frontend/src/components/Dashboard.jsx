@@ -499,27 +499,37 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
       <p className="metric-subtitle" style={{textAlign: 'left', marginBottom: '16px'}}>Patrones ordenados por frecuencia de aparición</p>
       
       
-      <div style={{
-        minHeight: '60px', 
-        marginBottom: '15px', 
-        padding: '12px 15px', 
-        background: 'rgba(0,0,0,0.2)', 
-        border: '1px solid rgba(255,255,255,0.05)', 
-        borderRadius: '8px', 
-        fontSize: '0.85rem', 
-        color: (hoveredStrategy || hoveredPattern) ? '#f4f4f5' : '#71717a',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        transition: 'all 0.3s ease'
-      }}>
-        <Info size={18} color={(hoveredStrategy || hoveredPattern) ? 'var(--primary)' : '#52525b'} style={{flexShrink: 0}} />
-        <span style={{lineHeight: '1.4'}}>
-          {(hoveredStrategy && STRATEGY_TOOLTIPS[hoveredStrategy]) || 
-           (hoveredPattern && PATTERN_TOOLTIPS[hoveredPattern]) || 
-           "Pasa el cursor sobre el ícono (i) de una estrategia o patrón para ver su descripción."}
-        </span>
-      </div>
+
+
+
+      {/* FLOATING CENTER TOOLTIP */}
+      {(hoveredStrategy || hoveredPattern) && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '85%',
+          background: 'rgba(20,20,22,0.95)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid var(--primary)',
+          borderRadius: '12px',
+          padding: '25px',
+          zIndex: 1000,
+          boxShadow: '0 10px 40px rgba(0,0,0,0.9), 0 0 20px rgba(16,185,129,0.15)',
+          color: '#f4f4f5',
+          textAlign: 'center',
+          pointerEvents: 'none',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <Info size={28} color="var(--primary)" style={{marginBottom: '12px'}} />
+          <h4 style={{marginBottom: '10px', color: 'var(--primary)', fontSize: '1.1rem'}}>{hoveredStrategy || hoveredPattern}</h4>
+          <p style={{lineHeight: '1.5', fontSize: '0.9rem', margin: 0}}>
+            {(hoveredStrategy && STRATEGY_TOOLTIPS[hoveredStrategy]) || 
+             (hoveredPattern && PATTERN_TOOLTIPS[hoveredPattern])}
+          </p>
+        </div>
+      )}
 
 <div style={{ overflowY: 'auto', flex: 1, paddingRight: '10px', position: 'relative' }} className="custom-scrollbar" id="quant-scroll-area">
         
