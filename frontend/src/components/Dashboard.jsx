@@ -488,39 +488,6 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
       
       <div style={{ overflowY: 'auto', flex: 1, paddingRight: '10px', position: 'relative' }} className="custom-scrollbar" id="quant-scroll-area">
         
-        <div style={{display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '28px'}}>
-          {[
-            { label: 'Rompimientos', sublabel: 'Breakouts', value: metrics.breakout_hits || 0, isPct: true, max: 100, color: 'var(--primary)', glow: 'var(--primary-glow)' },
-            { label: 'Retrocesos a EMAs', sublabel: 'Pullbacks', value: metrics.pullback_hits || 0, isPct: true, max: 100, color: '#60a5fa', glow: 'rgba(96,165,250,0.3)' },
-            { label: 'Picos de Volatilidad', sublabel: 'Momentum', value: metrics.vol_spike_hits || 0, isPct: true, max: 100, color: '#f59e0b', glow: 'rgba(245,158,11,0.3)' },
-            { label: 'Caza-Reversiones', sublabel: 'Fading', value: metrics.fading_hits || 0, isPct: true, max: 100, color: '#ec4899', glow: 'rgba(236,72,153,0.3)' },
-            { label: 'Reversión a la media', sublabel: 'RSI', value: metrics.rsi_hits || 0, isPct: true, max: 100, color: '#a855f7', glow: 'rgba(168,85,247,0.3)' },
-            { label: 'Rechazo Institucional', sublabel: 'SMC', value: metrics.smc_hits || 0, isPct: true, max: 100, color: '#14b8a6', glow: 'rgba(20,184,166,0.3)' },
-            { label: 'Riesgo de Martingala', sublabel: 'Comportamiento', value: metrics.martingale_hits || 0, isPct: false, max: Math.max(metrics.martingale_hits || 0, 5), color: 'var(--loss-color)', glow: 'var(--loss-glow)' },
-            { label: 'Re-Entradas Perdidas', sublabel: 'Comportamiento', value: metrics.repo_hits || 0, isPct: false, max: Math.max(metrics.repo_hits || 0, 5), color: '#f97316', glow: 'rgba(249,115,22,0.3)' },
-          ].map(item => {
-            return { ...item, pct: item.max > 0 ? Math.round((item.value / item.max) * 100) : 0 };
-          }).sort((a,b) => b.pct - a.pct).map(({ label, sublabel, value, isPct, pct, color, glow }) => {
-            return (
-              <div key={label}>
-                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '7px'}}>
-                  <span style={{fontSize: '0.88rem', fontWeight: '600'}}>{label} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>({sublabel})</span></span>
-                  <span style={{fontWeight: '700', fontSize: '0.95rem', color}}>
-                    {value}{isPct ? '%' : ''} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>{isPct ? 'frecuencia' : 'veces'}</span>
-                  </span>
-                </div>
-                <div className="liquid-progress-bg">
-                  <div className="liquid-progress-fill" style={{
-                    width: `${pct}%`,
-                    background: `linear-gradient(90deg, ${color}aa, ${color})`,
-                    boxShadow: `0 0 15px ${glow}`
-                  }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
         {metrics.strategies && Object.keys(metrics.strategies).length > 0 && (
           <div>
             <p className="metric-subtitle" style={{textAlign: 'left', marginBottom: '16px', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px'}}>Correlación de Estrategias</p>
@@ -578,7 +545,40 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
                 </div>
               ))}
             </div>
-          </div>
+          <div style={{display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '28px'}}>
+          {[
+            { label: 'Rompimientos', sublabel: 'Breakouts', value: metrics.breakout_hits || 0, isPct: true, max: 100, color: 'var(--primary)', glow: 'var(--primary-glow)' },
+            { label: 'Retrocesos a EMAs', sublabel: 'Pullbacks', value: metrics.pullback_hits || 0, isPct: true, max: 100, color: '#60a5fa', glow: 'rgba(96,165,250,0.3)' },
+            { label: 'Picos de Volatilidad', sublabel: 'Momentum', value: metrics.vol_spike_hits || 0, isPct: true, max: 100, color: '#f59e0b', glow: 'rgba(245,158,11,0.3)' },
+            { label: 'Caza-Reversiones', sublabel: 'Fading', value: metrics.fading_hits || 0, isPct: true, max: 100, color: '#ec4899', glow: 'rgba(236,72,153,0.3)' },
+            { label: 'Reversión a la media', sublabel: 'RSI', value: metrics.rsi_hits || 0, isPct: true, max: 100, color: '#a855f7', glow: 'rgba(168,85,247,0.3)' },
+            { label: 'Rechazo Institucional', sublabel: 'SMC', value: metrics.smc_hits || 0, isPct: true, max: 100, color: '#14b8a6', glow: 'rgba(20,184,166,0.3)' },
+            { label: 'Riesgo de Martingala', sublabel: 'Comportamiento', value: metrics.martingale_hits || 0, isPct: false, max: Math.max(metrics.martingale_hits || 0, 5), color: 'var(--loss-color)', glow: 'var(--loss-glow)' },
+            { label: 'Re-Entradas Perdidas', sublabel: 'Comportamiento', value: metrics.repo_hits || 0, isPct: false, max: Math.max(metrics.repo_hits || 0, 5), color: '#f97316', glow: 'rgba(249,115,22,0.3)' },
+          ].map(item => {
+            return { ...item, pct: item.max > 0 ? Math.round((item.value / item.max) * 100) : 0 };
+          }).sort((a,b) => b.pct - a.pct).map(({ label, sublabel, value, isPct, pct, color, glow }) => {
+            return (
+              <div key={label}>
+                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '7px'}}>
+                  <span style={{fontSize: '0.88rem', fontWeight: '600'}}>{label} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>({sublabel})</span></span>
+                  <span style={{fontWeight: '700', fontSize: '0.95rem', color}}>
+                    {value}{isPct ? '%' : ''} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>{isPct ? 'frecuencia' : 'veces'}</span>
+                  </span>
+                </div>
+                <div className="liquid-progress-bg">
+                  <div className="liquid-progress-fill" style={{
+                    width: `${pct}%`,
+                    background: `linear-gradient(90deg, ${color}aa, ${color})`,
+                    boxShadow: `0 0 15px ${glow}`
+                  }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        </div>
         )}
       </div>
 
@@ -604,7 +604,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
           color: 'var(--primary)',
           opacity: 0.8
         }}>
-          <span style={{fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold'}}>Scroll</span>
+          <span style={{fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: '900'}}>Ver más</span>
           <ChevronDown size={20} />
         </div>
       </div>
