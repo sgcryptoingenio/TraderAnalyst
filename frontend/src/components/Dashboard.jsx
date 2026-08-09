@@ -381,192 +381,14 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
         </div>
       </div>
 
-      {/* PREDICTIVE MODELING & QUANT METRICS */}
-      <div className="glass-card" style={{ marginBottom: '30px' }}>
-        <h3 style={{marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px'}}>🎯 Modelado Predictivo y Análisis Quant</h3>
-        <p className="metric-subtitle" style={{textAlign: 'left', marginBottom: '28px'}}>Patrones y correlaciones identificados en base a tu operativa histórica</p>
-
-
-        {/* Quant Hit Bars */}
-        <div style={{display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '28px'}}>
-          {[
-            { label: 'Rompimientos', sublabel: 'Breakouts', value: metrics.breakout_hits || 0, isPct: true, max: 100, color: 'var(--primary)', glow: 'var(--primary-glow)' },
-            { label: 'Retrocesos a EMAs', sublabel: 'Pullbacks', value: metrics.pullback_hits || 0, isPct: true, max: 100, color: '#60a5fa', glow: 'rgba(96,165,250,0.3)' },
-            { label: 'Picos de Volatilidad', sublabel: 'Momentum', value: metrics.vol_spike_hits || 0, isPct: true, max: 100, color: '#f59e0b', glow: 'rgba(245,158,11,0.3)' },
-            { label: 'Caza-Reversiones', sublabel: 'Fading', value: metrics.fading_hits || 0, isPct: true, max: 100, color: '#ec4899', glow: 'rgba(236,72,153,0.3)' },
-            { label: 'Reversión a la media', sublabel: 'RSI', value: metrics.rsi_hits || 0, isPct: true, max: 100, color: '#a855f7', glow: 'rgba(168,85,247,0.3)' },
-            { label: 'Rechazo Institucional', sublabel: 'SMC', value: metrics.smc_hits || 0, isPct: true, max: 100, color: '#14b8a6', glow: 'rgba(20,184,166,0.3)' },
-            { label: 'Riesgo de Martingala', sublabel: 'Comportamiento', value: metrics.martingale_hits || 0, isPct: false, max: Math.max(metrics.martingale_hits || 0, 5), color: 'var(--loss-color)', glow: 'var(--loss-glow)' },
-            { label: 'Re-Entradas Perdidas', sublabel: 'Comportamiento', value: metrics.repo_hits || 0, isPct: false, max: Math.max(metrics.repo_hits || 0, 5), color: '#f97316', glow: 'rgba(249,115,22,0.3)' },
-          ].map(({ label, sublabel, value, isPct, max, color, glow }) => {
-            const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-            return (
-              <div key={label}>
-                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '7px'}}>
-                  <span style={{fontSize: '0.88rem', fontWeight: '600'}}>{label} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>({sublabel})</span></span>
-                  <span style={{fontWeight: '700', fontSize: '0.95rem', color}}>
-                    {value}{isPct ? '%' : ''} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>{isPct ? 'frecuencia' : 'veces'}</span>
-                  </span>
-                </div>
-                <div style={{width: '100%', height: '8px', background: 'var(--border-color)', borderRadius: '99px', overflow: 'hidden'}}>
-                  <div style={{
-                    height: '100%', borderRadius: '99px',
-                    width: `${pct}%`,
-                    background: `linear-gradient(90deg, ${color}aa, ${color})`,
-                    boxShadow: `0 0 10px ${glow}`,
-                    transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)'
-                  }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Strategy Correlation Bars */}
-        {metrics.strategies && Object.keys(metrics.strategies).length > 0 && (
-          <div>
-            <p className="metric-subtitle" style={{textAlign: 'left', marginBottom: '16px', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px'}}>Correlación de Estrategias</p>
-            <div style={{display: 'flex', flexDirection: 'column', gap: '14px'}}>
-              {Object.entries(metrics.strategies).sort((a,b)=>b[1]-a[1]).map(([strat, score]) => (
-                <div key={strat}>
-                  <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '6px'}}>
-                    <span style={{fontSize: '0.88rem', fontWeight: '500', position: 'relative'}}>
-                      {strat}
-                      <span 
-                        style={{marginLeft: '6px', cursor: 'help'}}
-                        onMouseEnter={() => setHoveredStrategy(strat)}
-                        onMouseLeave={() => setHoveredStrategy(null)}
-                      >
-                        <Info size={14} color="#a1a1aa" />
-                        {hoveredStrategy === strat && (
-                          <div style={{
-                            position: 'absolute', 
-                            bottom: 'calc(100% + 5px)', 
-                            left: '50%', 
-                            transform: 'translateX(-50%)', 
-                            background: '#18181b', 
-                            border: '1px solid var(--border-color)', 
-                            padding: '10px', 
-                            borderRadius: '8px', 
-                            width: '240px', 
-                            zIndex: 100, 
-                            color: '#f4f4f5', 
-                            fontSize: '0.75rem', 
-                            fontWeight: 'normal',
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.8)'
-                          }}>
-                            {STRATEGY_TOOLTIPS[strat] || "Información de la estrategia."}
-                          </div>
-                        )}
-                      </span>
-                    </span>
-                    <span style={{fontWeight: '700', color: score >= 60 ? 'var(--primary)' : score >= 40 ? '#f59e0b' : 'var(--loss-color)', fontSize: '0.9rem'}}>{score}%</span>
-                  </div>
-                  <div style={{width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '99px', overflow: 'hidden'}}>
-                    <div style={{
-                      height: '100%', borderRadius: '99px',
-                      width: `${score}%`,
-                      background: score >= 60
-                        ? 'linear-gradient(90deg, #059669, #10b981)'
-                        : score >= 40
-                        ? 'linear-gradient(90deg, #d97706, #f59e0b)'
-                        : 'linear-gradient(90deg, #b91c1c, #ef4444)',
-                      transition: 'width 0.9s cubic-bezier(0.4,0,0.2,1)'
-                    }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* TRADES DETALLADOS Y GRÁFICO */}
-      {active_symbol && metrics.all_trades && (
-        <div className="glass-card" style={{ marginBottom: '30px' }}>
-          <h3 style={{marginBottom: '20px'}}>Historial de Operaciones: {active_symbol}</h3>
-          <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '20px' }}>
-            <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-              <thead style={{ position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 1, boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
-                <tr>
-                  <th style={{padding: '10px 5px'}}>Fecha Entrada</th>
-                  <th style={{padding: '10px 5px'}}>Fecha Salida</th>
-                  <th style={{padding: '10px 5px'}}>Lado</th>
-                  <th style={{padding: '10px 5px'}}>PNL</th>
-                  <th style={{padding: '10px 5px'}}>Duración</th>
-                  <th style={{padding: '10px 5px'}}>Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {metrics.all_trades.filter(t => t.symbol === active_symbol).map((t, idx) => {
-                  const pnlVal = parseFloat(t.reported_pnl);
-                  return (
-                    <tr key={idx} className="hoverable-row" style={{borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
-                      <td className="text-secondary" style={{padding: '10px 5px'}}>{t.entry_time}</td>
-                      <td className="text-secondary" style={{padding: '10px 5px'}}>{t.exit_time !== 'N/A' ? t.exit_time : '-'}</td>
-                      <td style={{padding: '10px 5px', fontWeight: 'bold'}}>{t.side}</td>
-                      <td className={pnlVal >= 0 ? 'text-win' : 'text-loss'} style={{fontWeight: 'bold', padding: '10px 5px'}}>
-                        {pnlVal >= 0 ? '+' : ''}{pnlVal.toFixed(2)}
-                      </td>
-                      <td className="text-secondary" style={{padding: '10px 5px'}}>{t.duration}</td>
-                      <td style={{padding: '10px 5px'}}>
-                        <button 
-                          onClick={() => handleAnalyzeTrade(t)}
-                          className="upload-btn"
-                          style={{ padding: '6px 12px', fontSize: '0.8rem', opacity: activeTrade === t ? 0.5 : 1 }}
-                          disabled={tradeChartLoading && activeTrade === t}
-                        >
-                          {tradeChartLoading && activeTrade === t ? 'Cargando...' : 'Ver Gráfico'}
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* TRADE CHART VIEWER */}
-          {activeTrade && (
-            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <h4 style={{ margin: 0, color: 'var(--primary)' }}>Análisis Visual: Operación {activeTrade.side} ({activeTrade.entry_time})</h4>
-                  <select
-                    value={tradeTimeframe}
-                    onChange={(e) => handleAnalyzeTrade(activeTrade, e.target.value)}
-                    style={{ background: '#27272a', color: '#f4f4f5', border: '1px solid #3f3f46', borderRadius: '4px', padding: '4px 8px', fontSize: '0.85rem' }}
-                  >
-                    <option value="1m">1m</option>
-                    <option value="5m">5m</option>
-                    <option value="15m">15m</option>
-                    <option value="1h">1h</option>
-                    <option value="4h">4h</option>
-                    <option value="1d">1d</option>
-                  </select>
-                </div>
-                <button onClick={() => setActiveTrade(null)} className="nav-btn" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>Cerrar</button>
-              </div>
-              
-              {tradeChartLoading && <div style={{padding: '40px', textAlign: 'center', color: '#a1a1aa'}}>Obteniendo velas del mercado para esta operación... <Loader2 size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginLeft: '8px'}} className="spin" /></div>}
-              {marketDataError && <div style={{padding: '40px', textAlign: 'center', color: '#ef4444'}}><AlertTriangle size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginRight: '8px'}} /> {marketDataError}</div>}
-              
-              {!tradeChartLoading && !marketDataError && marketData && marketData.ohlcv && marketData.ohlcv.length > 0 && (
-                <div className="w-full bg-[#1A1A1A] rounded-xl overflow-hidden shadow-2xl relative" style={{ height: '70vh' }}>
-                  <EChartTrade marketData={marketData} />
-                </div>
-              )}
-            </div>
-          )}
-
-
-
-        </div>
-      )}
-
-      {/* EQUITY CURVE */}
+      
+      {/* SPLIT SCREEN GRID */}
+      <div className="dashboard-split-screen" style={ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '20px', marginBottom: '30px' }>
+        
+        <div className="equity-column" style={ minWidth: 0 }>
+{/* EQUITY CURVE */}
       {metrics.equity_curve && metrics.equity_curve.length > 0 && (
-        <div className="glass-card" style={{ marginBottom: '30px', height: '480px' }}>
+        <div className="glass-card" style={{ height: '550px', display: 'flex', flexDirection: 'column' }}>
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px'}}>
             <div>
               <h3 style={{marginBottom: '4px'}}>Curva de Consistencia (PNL USD)</h3>
@@ -651,6 +473,200 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
               />
             </AreaChart>
           </ResponsiveContainer>
+        </div>
+      )}
+
+      
+        </div>
+
+        <div className="predictive-column" style={ minWidth: 0 }>
+{/* PREDICTIVE MODELING & QUANT METRICS */}
+      <div className="glass-card" style={{ height: '550px', display: 'flex', flexDirection: 'column', padding: '24px' }}>
+        <h3 style={{marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px'}}>🎯 Modelado Predictivo y Análisis Quant</h3>
+        <p className="metric-subtitle" style={{textAlign: 'left', marginBottom: '16px'}}>Patrones y correlaciones identificados en base a tu operativa histórica</p>
+        <div style={{ overflowY: 'auto', flex: 1, paddingRight: '10px' }} className="custom-scrollbar">
+
+
+        {/* Quant Hit Bars */}
+        <div style={{display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '28px'}}>
+          {[
+            { label: 'Rompimientos', sublabel: 'Breakouts', value: metrics.breakout_hits || 0, isPct: true, max: 100, color: 'var(--primary)', glow: 'var(--primary-glow)' },
+            { label: 'Retrocesos a EMAs', sublabel: 'Pullbacks', value: metrics.pullback_hits || 0, isPct: true, max: 100, color: '#60a5fa', glow: 'rgba(96,165,250,0.3)' },
+            { label: 'Picos de Volatilidad', sublabel: 'Momentum', value: metrics.vol_spike_hits || 0, isPct: true, max: 100, color: '#f59e0b', glow: 'rgba(245,158,11,0.3)' },
+            { label: 'Caza-Reversiones', sublabel: 'Fading', value: metrics.fading_hits || 0, isPct: true, max: 100, color: '#ec4899', glow: 'rgba(236,72,153,0.3)' },
+            { label: 'Reversión a la media', sublabel: 'RSI', value: metrics.rsi_hits || 0, isPct: true, max: 100, color: '#a855f7', glow: 'rgba(168,85,247,0.3)' },
+            { label: 'Rechazo Institucional', sublabel: 'SMC', value: metrics.smc_hits || 0, isPct: true, max: 100, color: '#14b8a6', glow: 'rgba(20,184,166,0.3)' },
+            { label: 'Riesgo de Martingala', sublabel: 'Comportamiento', value: metrics.martingale_hits || 0, isPct: false, max: Math.max(metrics.martingale_hits || 0, 5), color: 'var(--loss-color)', glow: 'var(--loss-glow)' },
+            { label: 'Re-Entradas Perdidas', sublabel: 'Comportamiento', value: metrics.repo_hits || 0, isPct: false, max: Math.max(metrics.repo_hits || 0, 5), color: '#f97316', glow: 'rgba(249,115,22,0.3)' },
+          ].map(({ label, sublabel, value, isPct, max, color, glow }) => {
+            const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+            return (
+              <div key={label}>
+                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '7px'}}>
+                  <span style={{fontSize: '0.88rem', fontWeight: '600'}}>{label} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>({sublabel})</span></span>
+                  <span style={{fontWeight: '700', fontSize: '0.95rem', color}}>
+                    {value}{isPct ? '%' : ''} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>{isPct ? 'frecuencia' : 'veces'}</span>
+                  </span>
+                </div>
+                <div className="liquid-progress-bg">
+                  <div className="liquid-progress-fill" style={{
+                    width: `${pct}%`,
+                    background: `linear-gradient(90deg, ${color}aa, ${color})`,
+                    boxShadow: `0 0 15px ${glow}`
+                  }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Strategy Correlation Bars */}
+        {metrics.strategies && Object.keys(metrics.strategies).length > 0 && (
+          <div>
+            <p className="metric-subtitle" style={{textAlign: 'left', marginBottom: '16px', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px'}}>Correlación de Estrategias</p>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '14px'}}>
+              {Object.entries(metrics.strategies).sort((a,b)=>b[1]-a[1]).map(([strat, score]) => (
+                <div key={strat}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '6px'}}>
+                    <span style={{fontSize: '0.88rem', fontWeight: '500', position: 'relative'}}>
+                      {strat}
+                      <span 
+                        style={{marginLeft: '6px', cursor: 'help'}}
+                        onMouseEnter={() => setHoveredStrategy(strat)}
+                        onMouseLeave={() => setHoveredStrategy(null)}
+                      >
+                        <Info size={14} color="#a1a1aa" />
+                        {hoveredStrategy === strat && (
+                          <div style={{
+                            position: 'absolute', 
+                            bottom: 'calc(100% + 5px)', 
+                            left: '50%', 
+                            transform: 'translateX(-50%)', 
+                            background: '#18181b', 
+                            border: '1px solid var(--border-color)', 
+                            padding: '10px', 
+                            borderRadius: '8px', 
+                            width: '240px', 
+                            zIndex: 100, 
+                            color: '#f4f4f5', 
+                            fontSize: '0.75rem', 
+                            fontWeight: 'normal',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.8)'
+                          }}>
+                            {STRATEGY_TOOLTIPS[strat] || "Información de la estrategia."}
+                          </div>
+                        )}
+                      </span>
+                    </span>
+                    <span style={{fontWeight: '700', color: score >= 60 ? 'var(--primary)' : score >= 40 ? '#f59e0b' : 'var(--loss-color)', fontSize: '0.9rem'}}>{score}%</span>
+                  </div>
+                  <div className="liquid-progress-bg" style={{height: '6px'}}>
+                    <div className="liquid-progress-fill" style={{
+                      width: `${score}%`,
+                      background: score >= 60
+                        ? 'linear-gradient(90deg, #059669, #10b981)'
+                        : score >= 40
+                        ? 'linear-gradient(90deg, #d97706, #f59e0b)'
+                        : 'linear-gradient(90deg, #b91c1c, #ef4444)',
+                      boxShadow: score >= 60
+                        ? '0 0 15px rgba(16,185,129,0.5)'
+                        : score >= 40
+                        ? '0 0 15px rgba(245,158,11,0.5)'
+                        : '0 0 15px rgba(239,68,68,0.5)'
+                    }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+              </div>
+</div>
+
+      
+        </div>
+
+      </div>
+{/* TRADES DETALLADOS Y GRÁFICO */}
+      {active_symbol && metrics.all_trades && (
+        <div className="glass-card" style={{ marginBottom: '30px' }}>
+          <h3 style={{marginBottom: '20px'}}>Historial de Operaciones: {active_symbol}</h3>
+          <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '20px' }}>
+            <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+              <thead style={{ position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 1, boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
+                <tr>
+                  <th style={{padding: '10px 5px'}}>Fecha Entrada</th>
+                  <th style={{padding: '10px 5px'}}>Fecha Salida</th>
+                  <th style={{padding: '10px 5px'}}>Lado</th>
+                  <th style={{padding: '10px 5px'}}>PNL</th>
+                  <th style={{padding: '10px 5px'}}>Duración</th>
+                  <th style={{padding: '10px 5px'}}>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.all_trades.filter(t => t.symbol === active_symbol).map((t, idx) => {
+                  const pnlVal = parseFloat(t.reported_pnl);
+                  return (
+                    <tr key={idx} className="hoverable-row" style={{borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
+                      <td className="text-secondary" style={{padding: '10px 5px'}}>{t.entry_time}</td>
+                      <td className="text-secondary" style={{padding: '10px 5px'}}>{t.exit_time !== 'N/A' ? t.exit_time : '-'}</td>
+                      <td style={{padding: '10px 5px', fontWeight: 'bold'}}>{t.side}</td>
+                      <td className={pnlVal >= 0 ? 'text-win' : 'text-loss'} style={{fontWeight: 'bold', padding: '10px 5px'}}>
+                        {pnlVal >= 0 ? '+' : ''}{pnlVal.toFixed(2)}
+                      </td>
+                      <td className="text-secondary" style={{padding: '10px 5px'}}>{t.duration}</td>
+                      <td style={{padding: '10px 5px'}}>
+                        <button 
+                          onClick={() => handleAnalyzeTrade(t)}
+                          className="upload-btn"
+                          style={{ padding: '6px 12px', fontSize: '0.8rem', opacity: activeTrade === t ? 0.5 : 1 }}
+                          disabled={tradeChartLoading && activeTrade === t}
+                        >
+                          {tradeChartLoading && activeTrade === t ? 'Cargando...' : 'Ver Gráfico'}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* TRADE CHART VIEWER */}
+          {activeTrade && (
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <h4 style={{ margin: 0, color: 'var(--primary)' }}>Análisis Visual: Operación {activeTrade.side} ({activeTrade.entry_time})</h4>
+                  <select
+                    value={tradeTimeframe}
+                    onChange={(e) => handleAnalyzeTrade(activeTrade, e.target.value)}
+                    style={{ background: '#27272a', color: '#f4f4f5', border: '1px solid #3f3f46', borderRadius: '4px', padding: '4px 8px', fontSize: '0.85rem' }}
+                  >
+                    <option value="1m">1m</option>
+                    <option value="5m">5m</option>
+                    <option value="15m">15m</option>
+                    <option value="1h">1h</option>
+                    <option value="4h">4h</option>
+                    <option value="1d">1d</option>
+                  </select>
+                </div>
+                <button onClick={() => setActiveTrade(null)} className="nav-btn" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>Cerrar</button>
+              </div>
+              
+              {tradeChartLoading && <div style={{padding: '40px', textAlign: 'center', color: '#a1a1aa'}}>Obteniendo velas del mercado para esta operación... <Loader2 size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginLeft: '8px'}} className="spin" /></div>}
+              {marketDataError && <div style={{padding: '40px', textAlign: 'center', color: '#ef4444'}}><AlertTriangle size={16} style={{display: 'inline-block', verticalAlign: 'middle', marginRight: '8px'}} /> {marketDataError}</div>}
+              
+              {!tradeChartLoading && !marketDataError && marketData && marketData.ohlcv && marketData.ohlcv.length > 0 && (
+                <div className="w-full bg-[#1A1A1A] rounded-xl overflow-hidden shadow-2xl relative" style={{ height: '70vh' }}>
+                  <EChartTrade marketData={marketData} />
+                </div>
+              )}
+            </div>
+          )}
+
+
+
         </div>
       )}
 
