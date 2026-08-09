@@ -167,7 +167,7 @@ const Profile = ({ token, onReportSelect }) => {
             No hay reportes analizados todavía. Sube un archivo de trading para comenzar.
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-container">
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #333', color: '#888', fontSize: '0.9rem', textTransform: 'uppercase' }}>
