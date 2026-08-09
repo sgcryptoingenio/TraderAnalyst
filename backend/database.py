@@ -103,6 +103,11 @@ def init_db():
             pass
             
         try:
+            cursor.execute("ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local'")
+        except sqlite3.OperationalError:
+            pass
+            
+        try:
             cursor.execute("ALTER TABLE users ADD COLUMN name TEXT")
         except sqlite3.OperationalError:
             pass

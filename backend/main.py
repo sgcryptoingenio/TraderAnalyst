@@ -59,7 +59,7 @@ class GoogleAuth(BaseModel):
     credential: str
 
 class ChangePasswordRequest(BaseModel):
-    old_password: str
+    old_password: Optional[str] = ""
     new_password: str
 
 def get_current_user(authorization: str = Header(None), token: str = None):
@@ -151,10 +151,16 @@ async def google_auth(auth: GoogleAuth, db = Depends(get_db)):
             username = f"{username}{random.randint(1000, 9999)}"
             
         hashed_password = await run_in_threadpool(get_password_hash, os.urandom(16).hex())
-        cursor.execute(
-            "INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, 'user', ?)",
-            (username, hashed_password, email)
-        )
+        try:
+            cursor.execute(
+                "INSERT INTO users (username, password_hash, role, email, auth_provider) VALUES (?, ?, 'user', ?, 'google')",
+                (username, hashed_password, email)
+            )
+        except Exception:
+            cursor.execute(
+                "INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, 'user', ?)",
+                (username, hashed_password, email)
+            )
         conn.commit()
         
         cursor.execute("SELECT id, username, role, mentor_id FROM users WHERE email = ?", (email,))
@@ -178,18 +184,27 @@ def change_password(
     conn = db
     cursor = conn.cursor()
     
-    cursor.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,))
+    try:
+        cursor.execute("SELECT password_hash, auth_provider FROM users WHERE id = ?", (user_id,))
+    except Exception:
+        cursor.execute("SELECT password_hash, 'local' as auth_provider FROM users WHERE id = ?", (user_id,))
     db_user = cursor.fetchone()
     
     if not db_user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-    if not verify_password(req.old_password, db_user["password_hash"]):
-        raise HTTPException(status_code=400, detail="La contraseña actual es incorrecta")
+    auth_provider = dict(db_user).get("auth_provider") or "local"
+    
+    if auth_provider != 'google':
+        if not verify_password(req.old_password, db_user["password_hash"]):
+            raise HTTPException(status_code=400, detail="La contraseña actual es incorrecta")
         
     hashed_new_password = get_password_hash(req.new_password)
     
-    cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hashed_new_password, user_id))
+    try:
+        cursor.execute("UPDATE users SET password_hash = ?, auth_provider = 'local' WHERE id = ?", (hashed_new_password, user_id))
+    except Exception:
+        cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hashed_new_password, user_id))
     conn.commit()
     
     return {"success": True, "message": "Contraseña actualizada exitosamente"}
@@ -204,7 +219,10 @@ def get_profile(user_id: int = Depends(get_current_user), db = Depends(get_db)):
     cursor = conn.cursor()
     
     # Get user details
-    cursor.execute("SELECT username, email, role, name, photo_data FROM users WHERE id = ?", (user_id,))
+    try:
+        cursor.execute("SELECT username, email, role, name, photo_data, auth_provider FROM users WHERE id = ?", (user_id,))
+    except Exception:
+        cursor.execute("SELECT username, email, role, name, photo_data, 'local' as auth_provider FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")

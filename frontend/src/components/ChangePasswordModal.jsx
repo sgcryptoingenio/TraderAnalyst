@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import API_BASE from '../api';
 
@@ -8,6 +8,18 @@ const ChangePasswordModal = ({ token, onClose }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [status, setStatus] = useState(null); // { type: 'success' | 'error', message: '' }
   const [loading, setLoading] = useState(false);
+  const [isGoogleAuth, setIsGoogleAuth] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/profile`, { headers: { 'Authorization': `Bearer ${token}` }})
+      .then(r => r.json())
+      .then(d => {
+        if (d.profile && d.profile.auth_provider === 'google') {
+          setIsGoogleAuth(true);
+        }
+      })
+      .catch(e => console.error(e));
+  }, [token]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -99,7 +111,7 @@ const ChangePasswordModal = ({ token, onClose }) => {
           <div>
             <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>🔒 Seguridad</h2>
             <p className="text-secondary" style={{ margin: '6px 0 0', fontSize: '0.9rem' }}>
-              Cambia tu contraseña de acceso
+              {isGoogleAuth ? 'Crea una contraseña para tu cuenta (te permitirá iniciar sesión con correo y contraseña en el futuro)' : 'Cambia tu contraseña de acceso'}
             </p>
           </div>
           <button
@@ -141,6 +153,7 @@ const ChangePasswordModal = ({ token, onClose }) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {!isGoogleAuth && (
           <div>
             <label className="text-secondary" style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
               Contraseña Actual
@@ -150,12 +163,13 @@ const ChangePasswordModal = ({ token, onClose }) => {
               placeholder="••••••••"
               value={oldPassword}
               onChange={e => setOldPassword(e.target.value)}
-              required
+              required={!isGoogleAuth}
               style={inputStyle}
               onFocus={e => e.target.style.borderColor = 'var(--primary)'}
               onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
             />
           </div>
+          )}
 
           <div>
             <label className="text-secondary" style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
