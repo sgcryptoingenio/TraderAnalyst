@@ -109,7 +109,7 @@ const Profile = ({ token, onReportSelect }) => {
     <div className="glass-card" style={{ maxWidth: '900px', margin: '40px auto', padding: '30px' }}>
       
       {/* Profile Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '30px', marginBottom: '40px', paddingBottom: '30px', borderBottom: '1px solid #333' }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', gap: '30px', marginBottom: '40px', paddingBottom: '30px', borderBottom: '1px solid #333', textAlign: 'center' }}>
         <div style={{ position: 'relative', width: '120px', height: '120px', flexShrink: 0 }}>
           {profile.photo_data ? (
             <img src={profile.photo_data} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }} />
@@ -130,7 +130,7 @@ const Profile = ({ token, onReportSelect }) => {
         
         <div style={{ flex: 1 }}>
           {editing ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
               <input 
                 type="text" 
                 value={editName} 
@@ -143,7 +143,7 @@ const Profile = ({ token, onReportSelect }) => {
               <button onClick={() => setEditing(false)} style={{ background: '#444', color: '#fff', border: 'none', padding: '10px', borderRadius: '5px', cursor: 'pointer' }}><X size={20} /></button>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '10px' }}>
               <h1 style={{ margin: 0, fontSize: '2rem', color: '#fff' }}>{displayName}</h1>
               <button onClick={() => setEditing(true)} style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer' }} title="Editar Nombre">
                 <Edit2 size={18} />
