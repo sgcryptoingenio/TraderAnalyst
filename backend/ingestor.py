@@ -25,6 +25,8 @@ def clean_numeric(val):
         return float(match.group(0))
     return 0.0
 
+import difflib
+
 def find_column(columns, candidates):
     # First pass: Exact match
     for cand in candidates:
@@ -36,6 +38,47 @@ def find_column(columns, candidates):
         for col in columns:
             if re.search(r'\b' + re.escape(cand) + r'\b', col):
                 return col
+    return None
+
+def find_column_fuzzy(columns, candidates):
+    """
+    Intelligent semantic column mapping using Levenshtein distance and tokenization.
+    Robust to language changes and typos.
+    """
+    best_match = None
+    best_score = 0.0
+    
+    for col in columns:
+        col_clean = str(col).lower().strip()
+        
+        for cand in candidates:
+            cand = cand.lower().strip()
+            
+            # 1. Exact match (100% confidence)
+            if cand == col_clean:
+                return col
+                
+            # 2. Token match (e.g. "price" in "avg entry price")
+            if cand in col_clean.split():
+                score = 0.85
+                if score > best_score:
+                    best_score = score
+                    best_match = col
+                    
+            # 3. Fuzzy matching (typos or compound words)
+            ratio = difflib.SequenceMatcher(None, col_clean, cand).ratio()
+            
+            # Boost ratio if candidate is a substring
+            if cand in col_clean:
+                ratio = max(ratio, 0.75)
+                
+            if ratio > best_score:
+                best_score = ratio
+                best_match = col
+                
+    # Confidence threshold of 60%
+    if best_score >= 0.6:
+        return best_match
     return None
 
 def is_trade_level_csv(df):
@@ -185,16 +228,16 @@ def smart_parse(df):
     clean_cols = [str(c).lower().strip() for c in original_cols]
     col_map = dict(zip(clean_cols, original_cols))
     
-    # Heuristics
-    sym_col = find_column(clean_cols, ['symbol', 'futures', 'símbolo', 'pair', 'par', 'price unit', 'precio unitario', 'mercado', 'market', 'contrato', 'contract'])
-    side_col = find_column(clean_cols, ['side', 'direction', 'dirección', 'long/short', 'tipo', 'type', 'lado'])
-    entry_p_col = find_column(clean_cols, ['entry price', 'precio entrada', 'precio promedio de entrada', 'avg entry', 'entry', 'average entry price', 'avg. entry price', 'entry_price', 'precio de entrada', 'precio', 'price', 'precio medio de apertura'])
-    exit_p_col = find_column(clean_cols, ['exit price', 'precio salida', 'precio promedio de salida', 'avg close', 'exit', 'average closing price', 'avg. exit price', 'exit_price', 'precio de cierre', 'closing price', 'precio medio de cierre'])
-    entry_t_col = find_column(clean_cols, ['open time', 'entry time', 'opening time', 'fecha entrada', 'time', 'entry_time', 'fecha/hora de apertura', 'fecha de apertura', 'fecha de creacion', 'creation time', 'hora de apertura'])
-    exit_t_col = find_column(clean_cols, ['close time', 'exit time', 'fecha salida', 'cerrado', 'closed time', 'exit_time', 'fecha/hora de cierre', 'fecha de cierre', 'fecha de actualización', 'update time', 'hora de cierre'])
-    size_col = find_column(clean_cols, ['closed amount', 'size', 'closing qty', 'closed position', 'posición cerrada', 'posicion cerrada', 'cantidad', 'qty', 'amount', 'volumen', 'volume'])
-    pnl_col = find_column(clean_cols, ['realized pnl', 'pnl', 'pnl usd', 'pnl %', 'gyp realizadas', 'beneficio', 'ganancia', 'ganancias', 'profit', 'reported_pnl', 'realized_pnl', 'pnl realizado', 'beneficio obtenido', 'p/l', 'net pnl', 'net profit', 'beneficio/pérdida', 'ganancia/pérdida'])
-    fee_col = find_column(clean_cols, ['fee', 'comisión', 'comision', 'fees', 'tarifas', 'tarifa'])
+    # Semantic Heuristics using Fuzzy Matching
+    sym_col = find_column_fuzzy(clean_cols, ['symbol', 'futures', 'símbolo', 'pair', 'par', 'price unit', 'precio unitario', 'mercado', 'market', 'contrato', 'contract', 'coin', 'token', 'activo'])
+    side_col = find_column_fuzzy(clean_cols, ['side', 'direction', 'dirección', 'long/short', 'tipo', 'type', 'lado'])
+    entry_p_col = find_column_fuzzy(clean_cols, ['entry price', 'precio entrada', 'precio promedio de entrada', 'avg entry', 'entry', 'average entry price', 'avg. entry price', 'entry_price', 'precio de entrada', 'precio medio de apertura'])
+    exit_p_col = find_column_fuzzy(clean_cols, ['exit price', 'precio salida', 'precio promedio de salida', 'avg close', 'exit', 'average closing price', 'avg. exit price', 'exit_price', 'precio de cierre', 'closing price', 'precio medio de cierre'])
+    entry_t_col = find_column_fuzzy(clean_cols, ['open time', 'entry time', 'opening time', 'fecha entrada', 'time', 'entry_time', 'fecha/hora de apertura', 'fecha de apertura', 'fecha de creacion', 'creation time', 'hora de apertura'])
+    exit_t_col = find_column_fuzzy(clean_cols, ['close time', 'exit time', 'fecha salida', 'cerrado', 'closed time', 'exit_time', 'fecha/hora de cierre', 'fecha de cierre', 'fecha de actualización', 'update time', 'hora de cierre'])
+    size_col = find_column_fuzzy(clean_cols, ['closed amount', 'size', 'closing qty', 'closed position', 'posición cerrada', 'posicion cerrada', 'cantidad', 'qty', 'amount', 'volumen', 'volume'])
+    pnl_col = find_column_fuzzy(clean_cols, ['realized pnl', 'pnl', 'pnl usd', 'pnl %', 'gyp realizadas', 'beneficio', 'ganancia', 'ganancias', 'profit', 'reported_pnl', 'realized_pnl', 'pnl realizado', 'beneficio obtenido', 'p/l', 'net pnl', 'net profit', 'beneficio/pérdida', 'ganancia/pérdida', 'gyp'])
+    fee_col = find_column_fuzzy(clean_cols, ['fee', 'comisión', 'comision', 'fees', 'tarifas', 'tarifa', 'cost'])
     
     # Required columns logic
     if not pnl_col and not exit_p_col:
