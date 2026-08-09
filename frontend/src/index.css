@@ -655,3 +655,8 @@ th {
 tr:hover {
   background: rgba(255, 255, 255, 0.05);
 }
+
+/* --- Dashboard Split Screen & Animations --- */
+.dashboard-split-screen { display: grid; grid-template-columns: 1fr; gap: 20px; }
+@media (min-width: 1200px) { .dashboard-split-screen { grid-template-columns: 1fr 450px; } }
+@keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } 60% { transform: translateY(-5px); } }
