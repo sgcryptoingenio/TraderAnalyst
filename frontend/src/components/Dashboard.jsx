@@ -20,10 +20,22 @@ const STRATEGY_TOOLTIPS = {
   "EMA Crossover (50/200) Largo Plazo": "Mide si te posicionaste de acuerdo a la tendencia macro, buscando el 'Cruce Dorado' o 'Cruce de la Muerte' de las EMAs 50 y 200."
 };
 
+const PATTERN_TOOLTIPS = {
+  'Rompimientos': 'Operaciones a favor de la ruptura de un nivel de soporte o resistencia relevante.',
+  'Retrocesos a EMAs': 'Entradas buscando continuación de tendencia al rebotar en medias móviles (EMAs).',
+  'Picos de Volatilidad': 'Entradas impulsadas por aumentos bruscos de volumen y aceleración del precio (Momentum).',
+  'Caza-Reversiones': 'Búsqueda de giros en contra de la tendencia principal en niveles extremos (Fading).',
+  'Reversión a la media': 'Entradas basadas en sobrecompra/sobreventa usando osciladores como el RSI.',
+  'Rechazo Institucional': 'Entradas en zonas de liquidez o bloques de órdenes (Order Blocks/SMC).',
+  'Riesgo de Martingala': 'Comportamiento negativo: Aumentar el tamaño o promediar en pérdidas.',
+  'Re-Entradas Perdidas': 'Comportamiento negativo: Reingresar repetitivamente tras ser liquidado (Revenge trading).'
+};
+
 const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange }) => {
   const [mentorshipLink, setMentorshipLink] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [hoveredStrategy, setHoveredStrategy] = useState(null);
+  const [hoveredPattern, setHoveredPattern] = useState(null);
   
   const { exchange, metrics, active_symbol } = data;
 
@@ -546,6 +558,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
               ))}
             </div>
           <div style={{display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '28px'}}>
+            <p className="metric-subtitle" style={{textAlign: 'left', marginBottom: '6px', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px'}}>Frecuencia de Patrones</p>
           {[
             { label: 'Rompimientos', sublabel: 'Breakouts', value: metrics.breakout_hits || 0, isPct: true, max: 100, color: 'var(--primary)', glow: 'var(--primary-glow)' },
             { label: 'Retrocesos a EMAs', sublabel: 'Pullbacks', value: metrics.pullback_hits || 0, isPct: true, max: 100, color: '#60a5fa', glow: 'rgba(96,165,250,0.3)' },
@@ -561,7 +574,36 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
             return (
               <div key={label}>
                 <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '7px'}}>
-                  <span style={{fontSize: '0.88rem', fontWeight: '600'}}>{label} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>({sublabel})</span></span>
+                  <span style={{fontSize: '0.88rem', fontWeight: '600', position: 'relative', display: 'flex', alignItems: 'center'}}>
+                    {label} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.75rem', marginLeft: '5px'}}>({sublabel})</span>
+                    <span 
+                      style={{marginLeft: '6px', cursor: 'help', display: 'flex'}}
+                      onMouseEnter={() => setHoveredPattern(label)}
+                      onMouseLeave={() => setHoveredPattern(null)}
+                    >
+                      <Info size={14} color="#a1a1aa" />
+                      {hoveredPattern === label && (
+                        <div style={{
+                          position: 'absolute', 
+                          bottom: 'calc(100% + 5px)', 
+                          left: '50%', 
+                          transform: 'translateX(-50%)', 
+                          background: '#18181b', 
+                          border: '1px solid var(--border-color)', 
+                          padding: '10px', 
+                          borderRadius: '8px', 
+                          width: '240px', 
+                          zIndex: 100, 
+                          color: '#f4f4f5', 
+                          fontSize: '0.75rem', 
+                          fontWeight: 'normal',
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.8)'
+                        }}>
+                          {PATTERN_TOOLTIPS[label] || "Información del patrón."}
+                        </div>
+                      )}
+                    </span>
+                  </span>
                   <span style={{fontWeight: '700', fontSize: '0.95rem', color}}>
                     {value}{isPct ? '%' : ''} <span className="text-secondary" style={{fontWeight: 400, fontSize: '0.8rem'}}>{isPct ? 'frecuencia' : 'veces'}</span>
                   </span>
