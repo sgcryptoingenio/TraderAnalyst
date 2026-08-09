@@ -160,6 +160,8 @@ h1, h2, h3, h4, h5, h6 {
   padding: 16px 24px;
   border-radius: 20px;
   margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 15px;
 }
 
 .navbar h2 {
@@ -174,6 +176,16 @@ h1, h2, h3, h4, h5, h6 {
   display: flex; 
   gap: 12px; 
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    justify-content: center;
+    flex-direction: column;
+    text-align: center;
+  }
 }
 
 /* Buttons */

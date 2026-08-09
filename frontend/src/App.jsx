@@ -236,15 +236,12 @@ function App() {
     }
   };
 
+  if (showLanding) {
+    return <Landing onEnterApp={() => setShowLanding(false)} />;
+  }
+
   if (!token) {
-    return (
-      <>
-        <Landing onEnterApp={() => setShowLanding(false)} />
-        {!showLanding && (
-          <Auth onLogin={handleLogin} onCancel={() => setShowLanding(true)} />
-        )}
-      </>
-    );
+    return <Auth onLogin={handleLogin} onCancel={() => setShowLanding(true)} />;
   }
 
   return (
@@ -256,7 +253,15 @@ function App() {
       </div>
       <div className="app-wrapper">
         <nav className="navbar glass-card">
-        <h2>Sabueso</h2>
+        <h2 
+          onClick={() => setShowLanding(true)} 
+          style={{ cursor: 'pointer', transition: 'opacity 0.2s', userSelect: 'none' }}
+          onMouseEnter={(e) => e.target.style.opacity = 0.8}
+          onMouseLeave={(e) => e.target.style.opacity = 1}
+          title="Ir al inicio"
+        >
+          Sabueso
+        </h2>
         <div className="nav-buttons">
           <span className="text-secondary" style={{ marginRight: '10px' }}>
             Hola, <strong className="text-neutral">{username}</strong> 
