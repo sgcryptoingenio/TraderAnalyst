@@ -38,6 +38,9 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
     if df.empty:
         return {}
         
+    # Eliminar duplicados en caso de subidas redundantes o datos repetidos
+    df = df.drop_duplicates(subset=['symbol', 'side', 'entry_time', 'exit_time', 'size', 'entry_price', 'exit_price']).copy()
+        
     available_symbols = df['symbol'].unique().tolist()
     
     if target_symbol and target_symbol in available_symbols:
