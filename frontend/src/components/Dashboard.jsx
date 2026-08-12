@@ -650,7 +650,49 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
   </div>
 </div>
 
-
+{/* RESUMEN POR PAR (Solo en vista global) */}
+{!active_symbol && metrics.symbol_performance && metrics.symbol_performance.length > 0 && (
+  <div className="glass-card" style={{ marginBottom: '30px' }}>
+    <h3 style={{marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+      <Target size={20} color="var(--primary)" /> Rendimiento por Par Operado
+    </h3>
+    <div style={{ maxHeight: '350px', overflowY: 'auto' }} className="custom-scrollbar">
+      <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+        <thead style={{ position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 1 }}>
+          <tr>
+            <th style={{padding: '10px 5px', color: 'var(--text-secondary)'}}>Par</th>
+            <th style={{padding: '10px 5px', color: 'var(--text-secondary)'}}>Total Operaciones</th>
+            <th style={{padding: '10px 5px', color: 'var(--text-secondary)'}}>Win Rate</th>
+            <th style={{padding: '10px 5px', color: 'var(--text-secondary)'}}>PNL (USD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {metrics.symbol_performance.map((perf, idx) => {
+            const pnlVal = parseFloat(perf.pnl);
+            const winRate = parseFloat(perf.win_rate_num);
+            return (
+              <tr key={idx} className="hoverable-row" style={{borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
+                <td style={{padding: '10px 5px', fontWeight: 'bold'}}>{perf.symbol}</td>
+                <td style={{padding: '10px 5px'}}>{perf.total_trades}</td>
+                <td style={{padding: '10px 5px'}}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '200px' }}>
+                    <span style={{ minWidth: '45px', fontWeight: 'bold', color: winRate >= 50 ? 'var(--win-color)' : 'var(--loss-color)' }}>{perf.win_rate}</span>
+                    <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${winRate}%`, height: '100%', background: winRate >= 50 ? 'var(--win-color)' : 'var(--loss-color)' }}></div>
+                    </div>
+                  </div>
+                </td>
+                <td className={pnlVal >= 0 ? 'text-win' : 'text-loss'} style={{padding: '10px 5px', fontWeight: 'bold'}}>
+                  {pnlVal >= 0 ? '+' : ''}{pnlVal.toFixed(2)}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
 
 {/* TRADES DETALLADOS Y GRÁFICO */}
       {active_symbol && metrics.all_trades && (

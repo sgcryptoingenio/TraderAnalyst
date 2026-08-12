@@ -470,6 +470,24 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
         
     all_trades = all_trades.fillna('N/A').to_dict('records')
 
+    # Calculate performance per symbol
+    symbol_perf = []
+    if not df.empty:
+        grouped = df.groupby('symbol')
+        for sym, group in grouped:
+            total_sym_trades = len(group)
+            sym_wins = group[group['reported_pnl'] > 0]
+            sym_win_rate = (len(sym_wins) / total_sym_trades) * 100 if total_sym_trades > 0 else 0
+            sym_pnl = group['pnl_usd'].sum()
+            symbol_perf.append({
+                'symbol': sym,
+                'total_trades': total_sym_trades,
+                'win_rate': f"{sym_win_rate:.1f}%",
+                'win_rate_num': sym_win_rate,
+                'pnl': f"{sym_pnl:.2f}"
+            })
+        symbol_perf = sorted(symbol_perf, key=lambda x: x['total_trades'], reverse=True)
+
     return {
         'available_symbols': available_symbols,
         'total_trades': len(df),
@@ -497,5 +515,6 @@ async def analyze_trades(df, target_symbol=None, selected_timeframe=None):
         },
         'strategies': strategy_scores,
         'analyzed_timeframe': quant_tf if 'quant_tf' in locals() else selected_timeframe or "1h",
+        'symbol_performance': symbol_perf,
         **raw_hits
     }
