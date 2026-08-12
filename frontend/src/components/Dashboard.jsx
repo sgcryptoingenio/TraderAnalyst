@@ -671,7 +671,13 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
             const pnlVal = parseFloat(perf.pnl);
             const winRate = parseFloat(perf.win_rate_num);
             return (
-              <tr key={idx} className="hoverable-row" style={{borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
+              <tr 
+                key={idx} 
+                className="hoverable-row" 
+                style={{borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer'}}
+                onClick={() => onSymbolChange(perf.symbol)}
+                title={`Ver historial de ${perf.symbol}`}
+              >
                 <td style={{padding: '10px 5px', fontWeight: 'bold'}}>{perf.symbol}</td>
                 <td style={{padding: '10px 5px'}}>{perf.total_trades}</td>
                 <td style={{padding: '10px 5px'}}>
