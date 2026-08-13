@@ -10,6 +10,11 @@ const EChartTrade = ({ marketData }) => {
     const volumes = [];
     const ema9 = [];
     const ema21 = [];
+    const ema50 = [];
+    const ema200 = [];
+    const vwap = [];
+    const bbu = [];
+    const bbl = [];
     const rsi = [];
     const macd = [];
     const macdSignal = [];
@@ -23,6 +28,11 @@ const EChartTrade = ({ marketData }) => {
       volumes.push([c.time, c.volume, c.close >= c.open ? 1 : -1]);
       ema9.push(c.EMA_9);
       ema21.push(c.EMA_21);
+      ema50.push(c.EMA_50);
+      ema200.push(c.EMA_200);
+      vwap.push(c.VWAP);
+      bbu.push(c.BBU_20);
+      bbl.push(c.BBL_20);
       rsi.push(c.RSI_14);
       macd.push(c.MACD);
       macdSignal.push(c.MACD_Signal);
@@ -131,6 +141,18 @@ const EChartTrade = ({ marketData }) => {
         textStyle: { color: '#e5e7eb' },
         backgroundColor: '#1f2937'
       },
+      legend: {
+        data: ['EMA 9', 'EMA 21', 'EMA 50', 'EMA 200', 'VWAP', 'BB Up', 'BB Low', 'RSI 14', 'MACD'],
+        textStyle: { color: '#9ca3af' },
+        top: 0,
+        selected: {
+          'EMA 50': false,
+          'EMA 200': false,
+          'VWAP': false,
+          'BB Up': false,
+          'BB Low': false
+        }
+      },
       axisPointer: { link: [{ xAxisIndex: 'all' }] },
       grid: [
         { left: '5%', right: '3%', top: '5%', height: '40%' },
@@ -172,6 +194,26 @@ const EChartTrade = ({ marketData }) => {
         {
           name: 'EMA 21', type: 'line', data: ema21, smooth: true, showSymbol: false,
           lineStyle: { color: '#f59e0b', width: 1.5 }, xAxisIndex: 0, yAxisIndex: 0
+        },
+        {
+          name: 'EMA 50', type: 'line', data: ema50, smooth: true, showSymbol: false,
+          lineStyle: { color: '#ef4444', width: 1.5 }, xAxisIndex: 0, yAxisIndex: 0
+        },
+        {
+          name: 'EMA 200', type: 'line', data: ema200, smooth: true, showSymbol: false,
+          lineStyle: { color: '#8b5cf6', width: 1.5 }, xAxisIndex: 0, yAxisIndex: 0
+        },
+        {
+          name: 'VWAP', type: 'line', data: vwap, smooth: true, showSymbol: false,
+          lineStyle: { color: '#ec4899', width: 1.5, type: 'dashed' }, xAxisIndex: 0, yAxisIndex: 0
+        },
+        {
+          name: 'BB Up', type: 'line', data: bbu, smooth: true, showSymbol: false,
+          lineStyle: { color: '#6ee7b7', width: 1, type: 'dotted' }, xAxisIndex: 0, yAxisIndex: 0
+        },
+        {
+          name: 'BB Low', type: 'line', data: bbl, smooth: true, showSymbol: false,
+          lineStyle: { color: '#6ee7b7', width: 1, type: 'dotted' }, xAxisIndex: 0, yAxisIndex: 0
         },
         {
           name: 'Volume',

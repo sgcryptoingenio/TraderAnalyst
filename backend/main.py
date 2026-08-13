@@ -925,22 +925,33 @@ async def get_trade_chart(req: TradeChartRequest, user_id: int = Depends(get_cur
                 'high': safe_val(h),
                 'low': safe_val(l),
                 'close': safe_val(c),
+                'volume': safe_val(v),
                 'EMA_9': safe_val(e9),
                 'EMA_21': safe_val(e21),
+                'EMA_50': safe_val(e50),
+                'EMA_200': safe_val(e200),
                 'RSI_14': safe_val(rsi),
                 'MACD': safe_val(macd),
                 'MACD_Signal': safe_val(macd_s),
-                'MACD_Hist': safe_val(macd_h)
+                'MACD_Hist': safe_val(macd_h),
+                'BBU_20': safe_val(bbu),
+                'BBL_20': safe_val(bbl),
+                'VWAP': safe_val(vwap)
             }
-            for t, o, h, l, c, e9, e21, rsi, macd, macd_s, macd_h in zip(
+            for t, o, h, l, c, v, e9, e21, e50, e200, rsi, macd, macd_s, macd_h, bbu, bbl, vwap in zip(
                 market_df['timestamp'], market_df['open'], 
-                market_df['high'], market_df['low'], market_df['close'],
+                market_df['high'], market_df['low'], market_df['close'], market_df['volume'],
                 market_df.get('EMA_9', pd.Series([None]*len(market_df))),
                 market_df.get('EMA_21', pd.Series([None]*len(market_df))),
+                market_df.get('EMA_50', pd.Series([None]*len(market_df))),
+                market_df.get('EMA_200', pd.Series([None]*len(market_df))),
                 market_df.get('RSI_14', pd.Series([None]*len(market_df))),
                 market_df.get('MACD', pd.Series([None]*len(market_df))),
                 market_df.get('MACD_Signal', pd.Series([None]*len(market_df))),
-                market_df.get('MACD_Hist', pd.Series([None]*len(market_df)))
+                market_df.get('MACD_Hist', pd.Series([None]*len(market_df))),
+                market_df.get('BBU_20', pd.Series([None]*len(market_df))),
+                market_df.get('BBL_20', pd.Series([None]*len(market_df))),
+                market_df.get('VWAP', pd.Series([None]*len(market_df)))
             )
         ]
         
