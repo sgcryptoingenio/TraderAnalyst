@@ -584,12 +584,39 @@ async def get_report_details(report_id: int, user_id: int = Depends(get_current_
     if not is_authorized:
         raise HTTPException(status_code=403, detail="Acceso denegado")
 
+    metrics = json.loads(report['full_data']) if report['full_data'] else {}
+    
+    # Retro-compatibility: Si 'symbol_performance' no existe (reporte antiguo), lo reconstruimos a partir de 'all_trades'
+    if 'symbol_performance' not in metrics and 'all_trades' in metrics:
+        symbol_perf_dict = {}
+        for t in metrics.get('all_trades', []):
+            sym = t.get('symbol', 'UNKNOWN')
+            pnl = float(t.get('reported_pnl', 0) or 0)
+            is_win = 1 if pnl > 0 else 0
+            if sym not in symbol_perf_dict:
+                symbol_perf_dict[sym] = {'total_trades': 0, 'wins': 0, 'pnl': 0.0}
+            symbol_perf_dict[sym]['total_trades'] += 1
+            symbol_perf_dict[sym]['wins'] += is_win
+            symbol_perf_dict[sym]['pnl'] += pnl
+        
+        symbol_perf = []
+        for sym, data in symbol_perf_dict.items():
+            win_rate = (data['wins'] / data['total_trades']) * 100 if data['total_trades'] > 0 else 0
+            symbol_perf.append({
+                'symbol': sym,
+                'total_trades': data['total_trades'],
+                'win_rate': f"{win_rate:.1f}%",
+                'win_rate_num': win_rate,
+                'pnl': f"{data['pnl']:.2f}"
+            })
+        metrics['symbol_performance'] = sorted(symbol_perf, key=lambda x: x['total_trades'], reverse=True)
+
     return {
         "success": True,
         "report": {
             "id": report['id'],
             "exchange": report['exchange'],
-            "metrics": json.loads(report['full_data']) if report['full_data'] else {},
+            "metrics": metrics,
             "active_symbol": None
         }
     }
