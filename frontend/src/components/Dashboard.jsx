@@ -772,7 +772,7 @@ const Dashboard = ({ data, onSymbolChange, onTimeRangeChange, onTimeframeChange 
               
               {!tradeChartLoading && !marketDataError && marketData && marketData.ohlcv && marketData.ohlcv.length > 0 && (
                 <div className="w-full bg-[#1A1A1A] rounded-xl overflow-hidden shadow-2xl relative" style={{ height: '70vh' }}>
-                  <EChartTrade marketData={marketData} />
+                  <EChartTrade marketData={marketData} topStrategies={metrics.strategies} />
                 </div>
               )}
             </div>

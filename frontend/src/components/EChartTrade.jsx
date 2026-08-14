@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
 
-const EChartTrade = ({ marketData }) => {
+const EChartTrade = ({ marketData, topStrategies }) => {
   const options = useMemo(() => {
     if (!marketData || !marketData.ohlcv) return {};
 
@@ -131,6 +131,42 @@ const EChartTrade = ({ marketData }) => {
       dataZoomEnd = Math.min(100, ((idxOut + 15) / total) * 100);
     }
 
+    let selected = {
+      'EMA 9': false,
+      'EMA 21': false,
+      'EMA 50': false,
+      'EMA 200': false,
+      'VWAP': false,
+      'BB Up': false,
+      'BB Low': false,
+      'RSI 14': false,
+      'MACD': false
+    };
+
+    if (topStrategies) {
+      // Activar los indicadores de las top 3 estrategias
+      const sortedStrats = Object.entries(topStrategies)
+        .filter(([_, score]) => score > 0)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 3);
+      
+      sortedStrats.forEach(([strat, _]) => {
+        if (strat.includes("RSI")) selected['RSI 14'] = true;
+        if (strat.includes("Bollinger")) { selected['BB Up'] = true; selected['BB Low'] = true; }
+        if (strat.includes("MACD")) { selected['MACD'] = true; }
+        if (strat.includes("VWAP")) selected['VWAP'] = true;
+        if (strat.includes("9/21") || strat.includes("Pullback")) { selected['EMA 9'] = true; selected['EMA 21'] = true; }
+        if (strat.includes("21/50")) { selected['EMA 21'] = true; selected['EMA 50'] = true; }
+        if (strat.includes("50/200")) { selected['EMA 50'] = true; selected['EMA 200'] = true; }
+      });
+    } else {
+      // Fallback
+      selected['EMA 9'] = true;
+      selected['EMA 21'] = true;
+      selected['RSI 14'] = true;
+      selected['MACD'] = true;
+    }
+
     return {
       tooltip: {
         trigger: 'axis',
@@ -145,13 +181,7 @@ const EChartTrade = ({ marketData }) => {
         data: ['EMA 9', 'EMA 21', 'EMA 50', 'EMA 200', 'VWAP', 'BB Up', 'BB Low', 'RSI 14', 'MACD'],
         textStyle: { color: '#9ca3af' },
         top: 0,
-        selected: {
-          'EMA 50': false,
-          'EMA 200': false,
-          'VWAP': false,
-          'BB Up': false,
-          'BB Low': false
-        }
+        selected: selected
       },
       axisPointer: { link: [{ xAxisIndex: 'all' }] },
       grid: [
@@ -241,7 +271,7 @@ const EChartTrade = ({ marketData }) => {
         }
       ]
     };
-  }, [marketData]);
+  }, [marketData, topStrategies]);
 
   if (!marketData || !marketData.ohlcv) {
     return <div className="text-gray-400">Sin datos de gráfico disponibles.</div>;
